@@ -397,6 +397,57 @@
     position:absolute; left:0;
     color:var(--text-faint);
   }
+  .node-link{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    margin-top:14px;
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:0.05em;
+    color:var(--cyan);
+    background:transparent;
+    border:1px solid var(--cyan-dim);
+    padding:8px 14px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    transition:all .2s ease;
+  }
+  .node-link:hover{
+    background:var(--cyan);
+    color:#04141A;
+    border-color:var(--cyan);
+  }
+  .node-link .chev{
+    transition:transform .25s ease;
+    font-size:11px;
+  }
+  .node-link[aria-expanded="true"] .chev{
+    transform:rotate(180deg);
+  }
+  .project-embed{
+    max-height:0;
+    overflow:hidden;
+    margin-top:0;
+    border-radius:6px;
+    border:1px solid var(--line);
+    transition:max-height .4s ease, margin-top .4s ease;
+  }
+  .project-embed.open{
+    max-height:640px;
+    margin-top:16px;
+  }
+  .project-embed iframe{
+    width:100%;
+    height:600px;
+    border:0;
+    display:block;
+    background:#0A1214;
+  }
+  @media (max-width:720px){
+    .project-embed iframe{height:420px;}
+    .project-embed.open{max-height:440px;}
+  }
 
   /* ===== SKILLS DUAL GRID ===== */
   .skills-grid{
@@ -761,6 +812,11 @@
         <li>Researched trajectory-progress vs. information-gain tradeoffs in navigation planning.</li>
         <li>Developed robust navigation algorithms using floor-plan and AR-tag tracking, and an autonomous mobile platform.</li>
       </ul>
+      <button class="node-link" type="button" onclick="toggleProject(this)" aria-expanded="false">View Project — ARM-7 Manipulator <span class="chev">↓</span></button>
+      <div class="project-embed">
+        <iframe src="mit_project.html" title="ARM-7 Industrial Manipulator demo" loading="lazy"></iframe>
+      </div>
+    </div>
 
   </div>
 </section>
@@ -900,6 +956,17 @@
 
 
 <script>
+  // Inline project embed toggle
+  function toggleProject(btn){
+    var embed = btn.nextElementSibling;
+    var open = embed.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btn.querySelector('.chev').textContent = open ? '↑' : '↓';
+    if(open){
+      embed.scrollIntoView({behavior:'smooth', block:'nearest'});
+    }
+  }
+
   // Scroll reveal
   const revealEls = document.querySelectorAll('.reveal');
   const io = new IntersectionObserver((entries)=>{
