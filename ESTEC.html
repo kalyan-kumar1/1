@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BISTATIC-RDR / Range-Azimuth Kinematic Matching</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#08090F;
+    --bg2:#0D1020;
+    --panel: rgba(16,18,34,0.72);
+    --panel-solid:#10121F;
+    --line: rgba(150,160,220,0.14);
+    --line-strong: rgba(150,160,220,0.30);
+    --violet:#8B5CF6;
+    --violet-dim: rgba(139,92,246,0.16);
+    --cyan:#22D3EE;
+    --cyan-dim: rgba(34,211,238,0.14);
+    --amber:#FFB020;
+    --amber-dim: rgba(255,176,32,0.16);
+    --text:#EDEFF7;
+    --text-muted:#8A8FB0;
+    --text-faint:#4A4F70;
+    --danger:#FF5D6C;
+    --sans:'Manrope', sans-serif;
+    --mono:'JetBrains Mono', monospace;
+    --radius:10px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 18% -6%, rgba(139,92,246,0.10), transparent 60%),
+      radial-gradient(ellipse 900px 500px at 100% 0%, rgba(34,211,238,0.07), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    overflow-x:hidden;
+  }
+  ::selection{background:var(--violet); color:#08090F;}
+
+  /* ---------------- Layout ---------------- */
+  .app{
+    min-height:100vh;
+    display:flex; flex-direction:column;
+    padding: 22px 24px 24px;
+    gap:16px;
+    max-width:1600px;
+    margin:0 auto;
+  }
+
+  header.top{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap;
+  }
+  .brand{display:flex; align-items:center; gap:13px;}
+  .brand .mark{
+    width:40px; height:40px; border-radius:10px;
+    background: linear-gradient(135deg, var(--violet), var(--cyan));
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+    box-shadow: 0 0 24px rgba(139,92,246,0.35);
+  }
+  .brand .mark svg{width:20px; height:20px;}
+  .brand h1{
+    font-size:20px; font-weight:800; letter-spacing:-0.01em;
+  }
+  .brand .sub{
+    font-family:var(--mono);
+    font-size:11px; color:var(--text-muted);
+    letter-spacing:0.07em; text-transform:uppercase;
+    margin-top:3px;
+  }
+
+  .pills{display:flex; gap:10px; flex-wrap:wrap;}
+  .pill{
+    display:flex; align-items:center; gap:8px;
+    background:var(--panel); border:1px solid var(--line);
+    backdrop-filter: blur(10px);
+    padding:9px 14px; border-radius:100px;
+    font-family:var(--mono); font-size:11px; letter-spacing:0.06em; text-transform:uppercase;
+    color:var(--text-muted);
+  }
+  .pill b{color:var(--text); font-weight:600; margin-left:2px;}
+  .pill .dot{width:7px; height:7px; border-radius:50%; background:var(--violet); flex-shrink:0;}
+  .pill .dot.matched{background:var(--cyan); box-shadow:0 0 8px var(--cyan); animation:blink 1.6s ease-in-out infinite;}
+  .pill .dot.coast{background:var(--amber);}
+  .pill .dot.calibrating{background:var(--text-faint); animation:blink 0.9s ease-in-out infinite;}
+  @keyframes blink{0%,100%{opacity:1;} 50%{opacity:0.35;}}
+
+  /* ---------------- Main grid ---------------- */
+  .grid{
+    display:grid;
+    grid-template-columns: minmax(0,2.1fr) minmax(300px, 1fr);
+    gap:16px;
+    flex:1;
+    min-height:0;
+  }
+  .col-right{
+    display:flex; flex-direction:column; gap:14px;
+    min-height:0;
+  }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    backdrop-filter: blur(14px);
+    border-radius: var(--radius);
+    padding:16px 18px 18px;
+    position:relative;
+  }
+  .panel-title{
+    display:flex; align-items:center; justify-content:space-between;
+    font-family:var(--mono); font-size:10.5px; letter-spacing:0.13em; text-transform:uppercase;
+    color:var(--text-muted);
+    margin-bottom:12px; padding-bottom:10px;
+    border-bottom:1px solid var(--line);
+    gap:10px;
+  }
+  .panel-title .tag{
+    color:var(--violet); font-weight:600; letter-spacing:0.08em;
+  }
+
+  /* ---------------- Scope panel ---------------- */
+  .scope-panel{
+    display:flex; flex-direction:column;
+    min-height:420px;
+  }
+  .scope-wrap{
+    position:relative; flex:1; border-radius:8px; overflow:hidden;
+    background:#05060B;
+    border:1px solid var(--line);
+  }
+  #scopeCanvas{width:100%; height:100%; display:block; cursor:default;}
+  .scope-legend{
+    position:absolute; left:14px; bottom:12px;
+    display:flex; gap:14px; flex-wrap:wrap;
+    font-family:var(--mono); font-size:10px; color:var(--text-muted);
+    background:rgba(8,9,15,0.55); border:1px solid var(--line);
+    padding:7px 11px; border-radius:8px; backdrop-filter: blur(6px);
+  }
+  .scope-legend span{display:flex; align-items:center; gap:6px;}
+  .scope-legend i{width:9px; height:9px; border-radius:3px; display:inline-block;}
+
+  /* ---------------- Telemetry ---------------- */
+  .t-row{
+    display:grid; grid-template-columns:1fr auto; gap:10px;
+    font-size:12px; padding:7px 0;
+    border-bottom:1px dashed var(--line);
+    align-items:baseline;
+  }
+  .t-row:last-child{border-bottom:none;}
+  .t-row .k{color:var(--text-muted); font-family:var(--mono); letter-spacing:0.04em; font-size:11px;}
+  .t-row .v{font-family:var(--mono); font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; text-align:right;}
+  .t-row .v.violet{color:var(--violet);}
+  .t-row .v.cyan{color:var(--cyan);}
+  .t-row .v.amber{color:var(--amber);}
+  .t-row .v.faint{color:var(--text-faint); font-weight:400;}
+
+  .conf-track{
+    margin-top:2px; height:4px; border-radius:2px; overflow:hidden;
+    background:rgba(150,160,220,0.14);
+  }
+  .conf-fill{height:100%; width:0%; border-radius:2px; background:linear-gradient(90deg, var(--amber), var(--cyan)); transition: width .2s ease;}
+
+  /* ---------------- Small chart panels ---------------- */
+  .chart-panel canvas{width:100%; height:96px; display:block; border-radius:6px; background:#05060B; border:1px solid var(--line);}
+  .chart-caption{
+    display:flex; justify-content:space-between;
+    font-family:var(--mono); font-size:10px; color:var(--text-faint); margin-top:8px;
+  }
+
+  /* ---------------- Geometry panel ---------------- */
+  #geoCanvas{width:100%; height:150px; display:block; border-radius:6px; background:#05060B; border:1px solid var(--line); cursor:default;}
+  .geo-caption{
+    font-family:var(--mono); font-size:10px; color:var(--text-faint);
+    margin-top:8px; letter-spacing:0.03em;
+  }
+
+  /* ---------------- Footer controls ---------------- */
+  footer.controls{
+    display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  }
+  .btn-group{display:flex; gap:10px; flex-wrap:wrap;}
+  .btn{
+    display:flex; align-items:center; gap:8px;
+    background:var(--panel); border:1px solid var(--line);
+    backdrop-filter: blur(10px); color:var(--text);
+    font-family:var(--mono); font-size:11.5px; letter-spacing:0.05em; text-transform:uppercase;
+    padding:10px 16px; border-radius:8px; cursor:pointer;
+    transition: border-color .15s ease, background .15s ease, color .15s ease;
+  }
+  .btn:hover{border-color:var(--line-strong); background:rgba(24,26,44,0.85);}
+  .btn:focus-visible{outline:2px solid var(--cyan); outline-offset:2px;}
+  .btn.primary{border-color:rgba(139,92,246,0.5); color:var(--violet);}
+  .btn.primary:hover{background:var(--violet); color:#08090F;}
+  .btn.warn{border-color:rgba(255,176,32,0.5); color:var(--amber);}
+  .btn.warn:hover{background:var(--amber); color:#08090F;}
+  .foot-note{
+    font-family:var(--mono); font-size:10.5px; color:var(--text-faint); letter-spacing:0.04em;
+  }
+
+  @media (max-width:980px){
+    .grid{grid-template-columns:1fr;}
+    .scope-panel{min-height:340px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <div class="mark">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="3" fill="#08090F"/>
+          <path d="M12 2 L12 6 M12 18 L12 22 M2 12 L6 12 M18 12 L22 12" stroke="#08090F" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <h1>BISTATIC&#8209;RDR</h1>
+        <div class="sub">Range&#8209;Azimuth Kinematic Matching &middot; IF Post&#8209;Processing</div>
+      </div>
+    </div>
+    <div class="pills">
+      <div class="pill"><span class="dot" id="calDot"></span>Calibration <b id="calValue">Calibrating</b></div>
+      <div class="pill"><span class="dot matched" id="trackDot"></span>Track State <b id="trackValue">Acquiring</b></div>
+      <div class="pill">Sweep <b id="sweepValue">0</b></div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- Range-Azimuth B-scope -->
+    <div class="panel scope-panel">
+      <div class="panel-title">
+        <span>Range&#8209;Azimuth Plane <span class="tag">&middot; B&#8209;Scope</span></span>
+        <span id="scopeReadout">AZ 0.0° &middot; R 0.00 km</span>
+      </div>
+      <div class="scope-wrap">
+        <canvas id="scopeCanvas"></canvas>
+        <div class="scope-legend">
+          <span><i style="background:var(--violet);"></i>Matched track</span>
+          <span><i style="background:var(--amber);"></i>Predicted / coasting</span>
+          <span><i style="background:var(--cyan);"></i>Detection return</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right column -->
+    <div class="col-right">
+      <div class="panel">
+        <div class="panel-title"><span>Kinematic &amp; Track Telemetry</span></div>
+        <div class="t-row"><span class="k">RANGE</span><span class="v" id="valRange">0.00 km</span></div>
+        <div class="t-row"><span class="k">AZIMUTH</span><span class="v" id="valAz">0.0°</span></div>
+        <div class="t-row"><span class="k">RADIAL VELOCITY</span><span class="v cyan" id="valVel">0.0 m/s</span></div>
+        <div class="t-row"><span class="k">BISTATIC ANGLE (β)</span><span class="v" id="valBeta">0.0°</span></div>
+        <div class="t-row"><span class="k">BISTATIC RANGE ΣR</span><span class="v" id="valBiRange">0.00 km</span></div>
+        <div class="t-row"><span class="k">SNR</span><span class="v" id="valSNR">0.0 dB</span></div>
+        <div class="t-row"><span class="k">MATCH CONFIDENCE</span><span class="v violet" id="valConf">0%</span></div>
+        <div class="conf-track"><div class="conf-fill" id="confFill"></div></div>
+      </div>
+
+      <div class="panel chart-panel">
+        <div class="panel-title"><span>Raw IF Signal</span></div>
+        <canvas id="ifCanvas"></canvas>
+        <div class="chart-caption"><span>Time&#8209;domain, post&#8209;mix</span><span id="ifCaption">std. noise floor</span></div>
+      </div>
+
+      <div class="panel chart-panel">
+        <div class="panel-title"><span>Range Profile</span></div>
+        <canvas id="profileCanvas"></canvas>
+        <div class="chart-caption"><span>0 km</span><span id="profilePeakLabel">peak: &mdash;</span><span id="profileMax">22 km</span></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title"><span>Bi&#8209;Static Geometry</span></div>
+        <canvas id="geoCanvas"></canvas>
+        <div class="geo-caption">Drag either satellite to reshape the orbital baseline &amp; bistatic geometry</div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="controls">
+    <div class="btn-group">
+      <button class="btn primary" id="btnPlay"><span>&#10074;&#10074;</span>Pause Sweep</button>
+      <button class="btn warn" id="btnManeuver"><span>&#8635;</span>Inject Target Maneuver</button>
+      <button class="btn" id="btnReset"><span>&#8635;</span>Reset Simulation</button>
+    </div>
+    <div class="foot-note">Simulated range&#8209;azimuth imagery &middot; object&#8209;based sequence matching against a constant&#8209;velocity kinematic prior &middot; bi&#8209;static geometry derived from post&#8209;processed IF data</div>
+  </footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+// ============================================================
+// Constants / world model
+// ============================================================
+var AZ_MIN = -60, AZ_MAX = 60;      // degrees, B-scope azimuth extent
+var RANGE_MAX = 22;                 // km
+var BASELINE_L = 8;                 // km, Tx-Rx separation (bistatic)
+var GATE_THRESHOLD = 2.4;           // km, association gate for matching
+var SWEEP_SPEED = 34;               // deg/sec
+
+// Target kinematic state (Cartesian km, Rx at origin, +y = boresight range axis)
+var target = {
+  x: -6.5, y: 9.0,
+  vx: 0.62, vy: 0.05
+};
+
+// Track (kinematic prior / prediction, maintained independent of target truth)
+var track = {
+  x: target.x, y: target.y,
+  vx: target.vx, vy: target.vy,
+  lastMatchTime: 0,
+  coastTime: 0,
+  confidence: 40
+};
+
+var sweepAz = AZ_MIN;
+var sweepDir = 1;
+var sweepCount = 0;
+var playing = true;
+var simTime = 0;
+var startTime = performance.now();
+var lastFrame = startTime;
+var calibrated = false;
+var maneuverT = 0;
+
+// Interactive orbital baseline (geometry panel)
+var txAngleDeg = -22, rxAngleDeg = 22;
+var dragSat = null;
+var geoState = {tx:{x:0,y:0}, rx:{x:0,y:0}, cx:0, cy:0};
+
+// Background constellation (decorative, non-interactive) sharing the same orbit frame
+var BG_SATS = [
+  {id:'SAT-03', phase:0.0, amp:58, hz:0.05, alt:66,  color:'#5C7AAE', size:0.62},
+  {id:'SAT-04', phase:2.3, amp:40, hz:0.035,alt:112, color:'#6B5FC4', size:0.5},
+  {id:'SAT-05', phase:4.4, amp:66, hz:0.045,alt:34,  color:'#3E8FA6', size:0.56},
+  {id:'SAT-06', phase:1.1, amp:32, hz:0.06, alt:150, color:'#4A5FA0', size:0.4}
+];
+
+// ============================================================
+// Helpers
+// ============================================================
+function toPolar(x,y){
+  var range = Math.hypot(x,y);
+  var az = Math.atan2(x,y) * 180/Math.PI;
+  return {range:range, az:az};
+}
+function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
+function lerp(a,b,t){ return a + (b-a)*t; }
+function randRange(a,b){ return a + Math.random()*(b-a); }
+function gauss(){ return (Math.random()+Math.random()+Math.random()+Math.random()-2)/2; }
+
+// ============================================================
+// Canvas setup helper (handles DPR + CSS sizing uniformly)
+// ============================================================
+function fitCanvas(canvas){
+  var dpr = Math.min(window.devicePixelRatio||1, 2);
+  var rect = canvas.getBoundingClientRect();
+  var w = Math.max(1, Math.round(rect.width*dpr));
+  var h = Math.max(1, Math.round(rect.height*dpr));
+  if(canvas.width !== w || canvas.height !== h){
+    canvas.width = w; canvas.height = h;
+  }
+  var ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {ctx:ctx, w:rect.width, h:rect.height};
+}
+
+// ============================================================
+// Scope (B-scope) persistence buffer
+// ============================================================
+var scopeCanvas = document.getElementById('scopeCanvas');
+var persist = document.createElement('canvas');
+var persistCtx = persist.getContext('2d');
+var persistW = 0, persistH = 0;
+
+function ensurePersist(w,h){
+  var dpr = Math.min(window.devicePixelRatio||1, 2);
+  var pw = Math.round(w*dpr), ph = Math.round(h*dpr);
+  if(persistW !== pw || persistH !== ph){
+    var old = persist;
+    var oldCtx = persistCtx;
+    persist = document.createElement('canvas');
+    persist.width = pw; persist.height = ph;
+    persistCtx = persist.getContext('2d');
+    persistCtx.setTransform(dpr,0,0,dpr,0,0);
+    persistW = pw; persistH = ph;
+  }
+}
+
+function azToX(az, w){ return ((az-AZ_MIN)/(AZ_MAX-AZ_MIN)) * w; }
+function rangeToY(r, h){ return h - (clamp(r,0,RANGE_MAX)/RANGE_MAX) * h; }
+
+function drawScopeGrid(ctx, w, h){
+  ctx.save();
+  ctx.strokeStyle = 'rgba(150,160,220,0.14)';
+  ctx.fillStyle = 'rgba(150,160,220,0.45)';
+  ctx.font = '500 9px "JetBrains Mono", monospace';
+  ctx.lineWidth = 1;
+
+  for(var az=AZ_MIN; az<=AZ_MAX; az+=15){
+    var x = azToX(az,w);
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.fillText(az.toFixed(0)+'°', x, h-4);
+  }
+  for(var r=0; r<=RANGE_MAX; r+=4){
+    var y = rangeToY(r,h);
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+    ctx.textAlign = 'left';
+    ctx.fillText(r.toFixed(0)+'km', 4, y-3);
+  }
+  ctx.restore();
+}
+
+function paintBlob(ctx, x, y, r, color, alpha){
+  var grad = ctx.createRadialGradient(x,y,0,x,y,r);
+  grad.addColorStop(0, color.replace('ALPHA', alpha));
+  grad.addColorStop(1, color.replace('ALPHA','0'));
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(x,y,r,0,Math.PI*2);
+  ctx.fill();
+}
+
+function drawSatelliteIcon(ctx, x, y, color, tilt){
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.rotate(tilt * 0.55);
+
+  // solar panels
+  ctx.fillStyle = 'rgba(150,160,220,0.85)';
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 0.8;
+  [-1,1].forEach(function(side){
+    ctx.save();
+    ctx.translate(side*10.5, 0);
+    ctx.fillRect(-5.5,-3.2,11,6.4);
+    ctx.strokeRect(-5.5,-3.2,11,6.4);
+    // panel grid lines
+    ctx.beginPath();
+    ctx.moveTo(-5.5,-1.1); ctx.lineTo(5.5,-1.1);
+    ctx.moveTo(-5.5,1.1); ctx.lineTo(5.5,1.1);
+    ctx.strokeStyle = 'rgba(8,9,15,0.4)';
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  // panel connector struts
+  ctx.strokeStyle = 'rgba(150,160,220,0.6)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-5,0); ctx.lineTo(-2.6,0);
+  ctx.moveTo(5,0); ctx.lineTo(2.6,0);
+  ctx.stroke();
+
+  // body
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 6;
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(-4.2,-4.2,8.4,8.4,2) : ctx.rect(-4.2,-4.2,8.4,8.4);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // antenna
+  ctx.strokeStyle = 'rgba(237,239,247,0.8)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0,-4.2); ctx.lineTo(0,-8.5);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(0,-8.5,1.1,0,Math.PI*2);
+  ctx.fillStyle = 'rgba(237,239,247,0.9)';
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawMiniSatellite(ctx, x, y, color, size){
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.scale(size, size);
+  ctx.globalAlpha = 0.75;
+
+  ctx.fillStyle = 'rgba(150,160,220,0.6)';
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 0.8;
+  [-1,1].forEach(function(side){
+    ctx.save();
+    ctx.translate(side*8.5, 0);
+    ctx.fillRect(-4,-2.4,8,4.8);
+    ctx.strokeRect(-4,-2.4,8,4.8);
+    ctx.restore();
+  });
+  ctx.strokeStyle = 'rgba(150,160,220,0.5)';
+  ctx.beginPath();
+  ctx.moveTo(-4,0); ctx.lineTo(-2,0);
+  ctx.moveTo(4,0); ctx.lineTo(2,0);
+  ctx.stroke();
+
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 4;
+  ctx.beginPath();
+  ctx.arc(0,0,3.2,0,Math.PI*2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.restore();
+}
+
+// ============================================================
+// IF signal + range profile buffers
+// ============================================================
+var ifBuffer = [];
+var IF_SAMPLES = 220;
+for(var i=0;i<IF_SAMPLES;i++) ifBuffer.push(0);
+
+var rangeProfile = [];
+var PROFILE_BINS = 90;
+for(var i2=0;i2<PROFILE_BINS;i2++) rangeProfile.push(0.05+Math.random()*0.05);
+
+// ============================================================
+// Update simulation
+// ============================================================
+var illuminated = false;
+var lastDetection = null;
+
+function updateSim(dt){
+  simTime += dt;
+
+  // maneuver: briefly rotate velocity vector when triggered
+  if(maneuverT > 0){
+    maneuverT -= dt;
+    var turnRate = 2.2; // rad/sec
+    var speed = Math.hypot(target.vx, target.vy);
+    var heading = Math.atan2(target.vy, target.vx) + turnRate*dt;
+    target.vx = Math.cos(heading)*speed;
+    target.vy = Math.sin(heading)*speed;
+  }
+
+  // integrate target truth
+  target.x += target.vx*dt;
+  target.y += target.vy*dt;
+
+  // bounce target gently within scope bounds so demo is self-contained
+  var p = toPolar(target.x, target.y);
+  if(p.az < AZ_MIN+4 || p.az > AZ_MAX-4){ target.vx *= -1; }
+  if(p.range > RANGE_MAX-2 || p.range < 3){ target.vy *= -1; }
+
+  // sweep motion (triangle wave across azimuth extent)
+  sweepAz += sweepDir * SWEEP_SPEED * dt;
+  if(sweepAz > AZ_MAX){ sweepAz = AZ_MAX; sweepDir = -1; sweepCount++; }
+  if(sweepAz < AZ_MIN){ sweepAz = AZ_MIN; sweepDir = 1; sweepCount++; }
+
+  // predicted track (dead reckoning, always advances)
+  track.x += track.vx*dt;
+  track.y += track.vy*dt;
+  track.coastTime += dt;
+
+  // illumination test: beam currently crossing target azimuth
+  var beamWidth = 2.2;
+  illuminated = Math.abs(sweepAz - p.az) < beamWidth;
+
+  if(illuminated){
+    // simulated detection = truth + measurement noise
+    var measNoise = 0.35;
+    var detX = target.x + gauss()*measNoise;
+    var detY = target.y + gauss()*measNoise;
+    var dist = Math.hypot(detX-track.x, detY-track.y);
+    lastDetection = {x:detX, y:detY, matched: dist < GATE_THRESHOLD};
+
+    if(dist < GATE_THRESHOLD){
+      var alpha = 0.55;
+      var newVx = (detX - track.x)/Math.max(0.05, track.coastTime);
+      var newVy = (detY - track.y)/Math.max(0.05, track.coastTime);
+      track.x = lerp(track.x, detX, alpha);
+      track.y = lerp(track.y, detY, alpha);
+      track.vx = lerp(track.vx, newVx, 0.35);
+      track.vy = lerp(track.vy, newVy, 0.35);
+      track.coastTime = 0;
+      track.confidence = clamp(100 - (dist/GATE_THRESHOLD)*55, 45, 99);
+    } else {
+      track.confidence = clamp(track.confidence - 8, 5, 100);
+    }
+  } else {
+    // confidence decays slowly while coasting without a fresh detection
+    track.confidence = clamp(track.confidence - dt*3, 5, 100);
+  }
+
+  // calibration warms up after a few seconds
+  if(!calibrated && simTime > 4.5) calibrated = true;
+
+  // IF buffer: scroll and append new sample
+  var carrier = Math.sin(simTime*46) * 0.28;
+  var echo = illuminated ? Math.sin(simTime*46 + p.range*2) * 0.55 * (1-Math.min(1,Math.abs(sweepAz-p.az)/beamWidth)) : 0;
+  var noise = gauss()*0.14;
+  ifBuffer.push(carrier+echo+noise);
+  if(ifBuffer.length > IF_SAMPLES) ifBuffer.shift();
+
+  // range profile: noise floor + peak near target range while illuminated
+  for(var b=0;b<PROFILE_BINS;b++){
+    var floor = 0.05 + Math.random()*0.05;
+    rangeProfile[b] = rangeProfile[b]*0.55 + floor*0.45;
+  }
+  if(illuminated){
+    var peakBin = Math.round((p.range/RANGE_MAX)*(PROFILE_BINS-1));
+    var illum = 1-Math.min(1,Math.abs(sweepAz-p.az)/beamWidth);
+    for(var b2=0;b2<PROFILE_BINS;b2++){
+      var d2 = Math.abs(b2-peakBin);
+      var lobe = Math.exp(-(d2*d2)/9) * illum;
+      rangeProfile[b2] = Math.max(rangeProfile[b2], lobe*(0.7+Math.random()*0.25));
+    }
+  }
+}
+
+// ============================================================
+// Render: B-scope
+// ============================================================
+function renderScope(){
+  var f = fitCanvas(scopeCanvas);
+  ensurePersist(f.w, f.h);
+
+  // fade persistence buffer (phosphor decay)
+  persistCtx.save();
+  persistCtx.globalCompositeOperation = 'destination-out';
+  persistCtx.fillStyle = 'rgba(0,0,0,0.06)';
+  persistCtx.fillRect(0,0,f.w,f.h);
+  persistCtx.restore();
+
+  // sparse clutter speckle
+  if(Math.random() < 0.6){
+    var cx = randRange(0,f.w), cy = randRange(0,f.h);
+    paintBlob(persistCtx, cx, cy, randRange(2,5), 'rgba(150,160,220,ALPHA)', 0.10);
+  }
+
+  // paint detection this frame
+  var p = toPolar(target.x, target.y);
+  if(illuminated){
+    var dx = azToX(p.az, f.w), dy = rangeToY(p.range, f.h);
+    paintBlob(persistCtx, dx, dy, 16, 'rgba(34,211,238,ALPHA)', 0.9);
+  }
+
+  // sweep line paints a faint wash
+  var sx = azToX(sweepAz, f.w);
+  var sweepGrad = persistCtx.createLinearGradient(sx-1,0,sx+1,0);
+  sweepGrad.addColorStop(0,'rgba(139,92,246,0)');
+  sweepGrad.addColorStop(0.5,'rgba(139,92,246,0.28)');
+  sweepGrad.addColorStop(1,'rgba(139,92,246,0)');
+  persistCtx.fillStyle = sweepGrad;
+  persistCtx.fillRect(sx-10,0,20,f.h);
+
+  // ---- compose main canvas ----
+  var ctx = f.ctx;
+  ctx.clearRect(0,0,f.w,f.h);
+  ctx.fillStyle = '#05060B';
+  ctx.fillRect(0,0,f.w,f.h);
+  drawScopeGrid(ctx, f.w, f.h);
+  ctx.drawImage(persist, 0,0, f.w, f.h);
+
+  // sweep line crisp
+  ctx.save();
+  ctx.strokeStyle = 'rgba(139,92,246,0.9)';
+  ctx.shadowColor = 'rgba(139,92,246,0.8)';
+  ctx.shadowBlur = 8;
+  ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.moveTo(sx,0); ctx.lineTo(sx,f.h); ctx.stroke();
+  ctx.restore();
+
+  // predicted track marker + uncertainty ring
+  var tp = toPolar(track.x, track.y);
+  var tx = azToX(tp.az, f.w), ty = rangeToY(tp.range, f.h);
+  var uncertainty = clamp(track.coastTime*10, 4, 34);
+
+  ctx.save();
+  ctx.strokeStyle = illuminated && lastDetection && lastDetection.matched ? 'rgba(139,92,246,0.9)' : 'rgba(255,176,32,0.75)';
+  ctx.setLineDash([3,3]);
+  ctx.lineWidth = 1.4;
+  ctx.beginPath();
+  ctx.arc(tx,ty, uncertainty, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  ctx.save();
+  ctx.fillStyle = '#EDEFF7';
+  ctx.strokeStyle = track.coastTime < 0.3 ? '#8B5CF6' : 'rgba(255,176,32,0.9)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(tx, ty-7); ctx.lineTo(tx+7,ty); ctx.lineTo(tx,ty+7); ctx.lineTo(tx-7,ty);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // velocity vector
+  ctx.save();
+  ctx.strokeStyle = 'rgba(237,239,247,0.6)';
+  ctx.lineWidth = 1.4;
+  var vScale = 10;
+  ctx.beginPath();
+  ctx.moveTo(tx,ty);
+  ctx.lineTo(tx + track.vx*vScale, ty - track.vy*vScale);
+  ctx.stroke();
+  ctx.restore();
+
+  document.getElementById('scopeReadout').textContent =
+    'AZ ' + p.az.toFixed(1) + '° · R ' + p.range.toFixed(2) + ' km';
+}
+
+// ============================================================
+// Render: IF waveform
+// ============================================================
+var ifCanvas = document.getElementById('ifCanvas');
+function renderIF(){
+  var f = fitCanvas(ifCanvas);
+  var ctx = f.ctx;
+  ctx.clearRect(0,0,f.w,f.h);
+  ctx.strokeStyle = 'rgba(150,160,220,0.12)';
+  ctx.beginPath(); ctx.moveTo(0,f.h/2); ctx.lineTo(f.w,f.h/2); ctx.stroke();
+
+  ctx.beginPath();
+  for(var i=0;i<ifBuffer.length;i++){
+    var x = (i/(ifBuffer.length-1))*f.w;
+    var y = f.h/2 - ifBuffer[i]*(f.h*0.42);
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.strokeStyle = illuminated ? '#22D3EE' : 'rgba(34,211,238,0.55)';
+  ctx.lineWidth = 1.3;
+  ctx.stroke();
+
+  document.getElementById('ifCaption').textContent = illuminated ? 'echo present' : 'std. noise floor';
+}
+
+// ============================================================
+// Render: range profile
+// ============================================================
+var profileCanvas = document.getElementById('profileCanvas');
+function renderProfile(){
+  var f = fitCanvas(profileCanvas);
+  var ctx = f.ctx;
+  ctx.clearRect(0,0,f.w,f.h);
+  var barW = f.w/PROFILE_BINS;
+  var peakVal = -1, peakIdx = -1;
+  for(var i=0;i<PROFILE_BINS;i++){
+    var v = clamp(rangeProfile[i],0,1);
+    if(v>peakVal){peakVal=v; peakIdx=i;}
+    var h = v*f.h;
+    var isPeak = v>0.55;
+    ctx.fillStyle = isPeak ? '#8B5CF6' : 'rgba(150,160,220,0.35)';
+    ctx.fillRect(i*barW, f.h-h, Math.max(1,barW-1), h);
+  }
+  var peakRange = (peakIdx/(PROFILE_BINS-1))*RANGE_MAX;
+  document.getElementById('profilePeakLabel').textContent = peakVal>0.5 ? ('peak: '+peakRange.toFixed(2)+' km') : 'peak: —';
+}
+
+// ============================================================
+// Render: bistatic geometry
+// ============================================================
+var geoCanvas = document.getElementById('geoCanvas');
+function renderGeo(){
+  var f = fitCanvas(geoCanvas);
+  var ctx = f.ctx;
+  ctx.clearRect(0,0,f.w,f.h);
+
+  var cx = f.w/2;
+  var earthR = f.w*1.55;
+  var visibleArc = f.h*0.46;
+  var earthCenterY = f.h - visibleArc + earthR;
+  var earthTopY = earthCenterY - earthR;
+  var orbitR = earthR + 44;
+
+  function satPos(angleDeg, r){
+    var a = angleDeg*Math.PI/180;
+    var rr = (r===undefined) ? orbitR : r;
+    return { x: cx + rr*Math.sin(a), y: earthCenterY - rr*Math.cos(a) };
+  }
+  var txPos = satPos(txAngleDeg);
+  var rxPos = satPos(rxAngleDeg);
+
+  // baseline km derived from angular separation (stylised, interactive)
+  var sepDeg = Math.abs(rxAngleDeg-txAngleDeg);
+  BASELINE_L = clamp(sepDeg*0.55, 1.5, 60);
+  var scale = clamp((f.w-60)/(BASELINE_L*2.2), 4, 40); // px per km
+
+  var tgtScreen = {
+    x: clamp(cx + clamp(target.x,-14,14)*scale*0.35, 26, f.w-26),
+    y: earthTopY + 11
+  };
+
+  // ---- Earth sphere ----
+  var grad = ctx.createRadialGradient(cx, earthTopY+earthR*0.12, earthR*0.15, cx, earthCenterY, earthR);
+  grad.addColorStop(0, '#154569');
+  grad.addColorStop(0.55, '#0c223d');
+  grad.addColorStop(1, '#04070E');
+  ctx.beginPath();
+  ctx.arc(cx, earthCenterY, earthR, 0, Math.PI*2);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, earthCenterY, earthR, 0, Math.PI*2);
+  ctx.clip();
+  // latitude bands
+  ctx.strokeStyle = 'rgba(150,190,230,0.10)';
+  ctx.lineWidth = 1;
+  for(var gi=1; gi<=4; gi++){
+    var yy = earthTopY + gi*13;
+    var dyc = yy-earthCenterY;
+    var xw = Math.sqrt(Math.max(0, earthR*earthR - dyc*dyc));
+    ctx.beginPath(); ctx.moveTo(cx-xw,yy); ctx.lineTo(cx+xw,yy); ctx.stroke();
+  }
+  // soft continent patches
+  ctx.fillStyle = 'rgba(90,150,110,0.28)';
+  ctx.beginPath(); ctx.ellipse(cx-f.w*0.22, earthTopY+18, 34, 14, 0.3, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx+f.w*0.18, earthTopY+30, 42, 16, -0.2, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = 'rgba(90,150,110,0.16)';
+  ctx.beginPath(); ctx.ellipse(cx+f.w*0.02, earthTopY+8, 26, 10, 0.1, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  // atmosphere limb glow
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, earthCenterY, earthR+3, 0, Math.PI*2);
+  ctx.strokeStyle = 'rgba(90,180,255,0.32)';
+  ctx.lineWidth = 5;
+  ctx.stroke();
+  ctx.restore();
+
+  // orbit guide arc
+  ctx.save();
+  ctx.setLineDash([3,4]);
+  ctx.strokeStyle = 'rgba(150,160,220,0.20)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(cx, earthCenterY, orbitR, -70*Math.PI/180 - Math.PI/2, 70*Math.PI/180 - Math.PI/2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // background constellation (decorative, drifting)
+  BG_SATS.forEach(function(s){
+    var angleDeg = s.amp*Math.sin(simTime*s.hz*Math.PI*2 + s.phase);
+    var pos = satPos(angleDeg, orbitR + s.alt);
+    drawMiniSatellite(ctx, pos.x, pos.y, s.color, s.size);
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = 'rgba(200,210,235,0.6)';
+    ctx.font = '500 7px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(s.id, pos.x, pos.y - 9);
+    ctx.restore();
+  });
+
+  // baseline chord
+  ctx.strokeStyle = 'rgba(150,160,220,0.55)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(txPos.x,txPos.y); ctx.lineTo(rxPos.x,rxPos.y); ctx.stroke();
+
+  // Tx-target, Rx-target — the core bi-static connections
+  var Rt = Math.hypot(tgtScreen.x-txPos.x, tgtScreen.y-txPos.y)/scale;
+  var Rr = Math.hypot(tgtScreen.x-rxPos.x, tgtScreen.y-rxPos.y)/scale;
+
+  ctx.save();
+  ctx.setLineDash([5,3]);
+  ctx.lineWidth = 1.6;
+  ctx.shadowBlur = 5;
+
+  ctx.shadowColor = 'rgba(139,92,246,0.7)';
+  ctx.strokeStyle = 'rgba(139,92,246,0.85)';
+  ctx.beginPath(); ctx.moveTo(txPos.x,txPos.y); ctx.lineTo(tgtScreen.x,tgtScreen.y); ctx.stroke();
+
+  ctx.shadowColor = 'rgba(34,211,238,0.7)';
+  ctx.strokeStyle = 'rgba(34,211,238,0.85)';
+  ctx.beginPath(); ctx.moveTo(rxPos.x,rxPos.y); ctx.lineTo(tgtScreen.x,tgtScreen.y); ctx.stroke();
+
+  ctx.shadowBlur = 0;
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  ctx.save();
+  ctx.font = '600 8px "JetBrains Mono", monospace';
+  ctx.textAlign = 'center';
+  var midTx = {x:(txPos.x+tgtScreen.x)/2, y:(txPos.y+tgtScreen.y)/2};
+  var midRx = {x:(rxPos.x+tgtScreen.x)/2, y:(rxPos.y+tgtScreen.y)/2};
+  ctx.fillStyle = 'rgba(139,92,246,0.95)';
+  ctx.fillText('Rt '+Rt.toFixed(1)+'km', midTx.x, midTx.y-5);
+  ctx.fillStyle = 'rgba(34,211,238,0.95)';
+  ctx.fillText('Rr '+Rr.toFixed(1)+'km', midRx.x, midRx.y-5);
+  ctx.restore();
+
+  // iso-bistatic-range ellipse (foci = Tx, Rx; sum = Rt+Rr), aligned to baseline
+  var a = (Rt+Rr)/2, c = BASELINE_L/2;
+  if(a > c+0.05){
+    var b = Math.sqrt(a*a - c*c);
+    var midX = (txPos.x+rxPos.x)/2, midY = (txPos.y+rxPos.y)/2;
+    var baseAngle = Math.atan2(rxPos.y-txPos.y, rxPos.x-txPos.x);
+    ctx.save();
+    ctx.translate(midX, midY);
+    ctx.rotate(baseAngle);
+    ctx.strokeStyle = 'rgba(255,176,32,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(0,0, a*scale, b*scale, 0, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // ground target marker with pulse
+  var pulse = 5 + (Math.sin(simTime*4)+1)*3;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(237,239,247,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(tgtScreen.x,tgtScreen.y,pulse,0,Math.PI*2); ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = '#EDEFF7';
+  ctx.beginPath(); ctx.arc(tgtScreen.x,tgtScreen.y,3.2,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = 'rgba(237,239,247,0.55)';
+  ctx.font = '500 8.5px "JetBrains Mono", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('TARGET', tgtScreen.x, tgtScreen.y-9);
+
+  // satellites
+  [ [txPos,'TX SAT','#8B5CF6', -1], [rxPos,'RX SAT','#22D3EE', 1] ].forEach(function(entry){
+    var pos=entry[0], label=entry[1], color=entry[2], tilt=entry[3];
+    drawSatelliteIcon(ctx, pos.x, pos.y, color, tilt);
+    ctx.fillStyle = 'rgba(237,239,247,0.8)';
+    ctx.font = '600 9px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, pos.x, pos.y - 13);
+  });
+
+  ctx.fillStyle = 'rgba(237,239,247,0.6)';
+  ctx.font = '500 9px "JetBrains Mono", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('L = '+BASELINE_L.toFixed(1)+' km', (txPos.x+rxPos.x)/2, (txPos.y+rxPos.y)/2 - 12);
+
+  geoState.tx = txPos; geoState.rx = rxPos; geoState.cx = cx; geoState.cy = earthCenterY;
+
+  return {Rt:Rt, Rr:Rr};
+}
+
+// Drag interaction: reposition satellites along the orbit
+geoCanvas.addEventListener('pointerdown', function(e){
+  var rect = geoCanvas.getBoundingClientRect();
+  var mx = e.clientX-rect.left, my = e.clientY-rect.top;
+  var dTx = Math.hypot(mx-geoState.tx.x, my-geoState.tx.y);
+  var dRx = Math.hypot(mx-geoState.rx.x, my-geoState.rx.y);
+  if(dTx < 16 && dTx <= dRx){ dragSat = 'tx'; }
+  else if(dRx < 16){ dragSat = 'rx'; }
+  if(dragSat){
+    geoCanvas.setPointerCapture(e.pointerId);
+    geoCanvas.style.cursor = 'grabbing';
+  }
+});
+geoCanvas.addEventListener('pointermove', function(e){
+  var rect = geoCanvas.getBoundingClientRect();
+  var mx = e.clientX-rect.left, my = e.clientY-rect.top;
+  if(!dragSat){
+    var dTx = Math.hypot(mx-geoState.tx.x, my-geoState.tx.y);
+    var dRx = Math.hypot(mx-geoState.rx.x, my-geoState.rx.y);
+    geoCanvas.style.cursor = (dTx<16 || dRx<16) ? 'grab' : 'default';
+    return;
+  }
+  var dx = mx-geoState.cx, dy = my-geoState.cy;
+  var angleDeg = clamp(Math.atan2(dx,-dy)*180/Math.PI, -70, 70);
+  if(dragSat === 'tx'){ txAngleDeg = Math.min(angleDeg, rxAngleDeg-4); }
+  else { rxAngleDeg = Math.max(angleDeg, txAngleDeg+4); }
+});
+window.addEventListener('pointerup', function(){
+  if(dragSat){ dragSat = null; geoCanvas.style.cursor = 'default'; }
+});
+
+// ============================================================
+// HUD text updates
+// ============================================================
+var elRange = document.getElementById('valRange');
+var elAz = document.getElementById('valAz');
+var elVel = document.getElementById('valVel');
+var elBeta = document.getElementById('valBeta');
+var elBiRange = document.getElementById('valBiRange');
+var elSNR = document.getElementById('valSNR');
+var elConf = document.getElementById('valConf');
+var confFill = document.getElementById('confFill');
+var calDot = document.getElementById('calDot');
+var calValue = document.getElementById('calValue');
+var trackDot = document.getElementById('trackDot');
+var trackValue = document.getElementById('trackValue');
+var sweepValue = document.getElementById('sweepValue');
+
+function updateHUD(geo){
+  var p = toPolar(target.x, target.y);
+  elRange.textContent = p.range.toFixed(2)+' km';
+  elAz.textContent = p.az.toFixed(1)+'°';
+
+  // radial velocity component toward Rx (origin)
+  var u = {x: target.x/Math.max(0.001,p.range), y: target.y/Math.max(0.001,p.range)};
+  var radial = (target.vx*u.x + target.vy*u.y) * 1000; // km/s -> m/s scale for display
+  elVel.textContent = (radial>=0?'+':'') + radial.toFixed(1)+' m/s';
+
+  var Rt = geo.Rt, Rr = geo.Rr;
+  var beta = Math.acos(clamp((Rt*Rt+Rr*Rr-BASELINE_L*BASELINE_L)/(2*Rt*Rr), -1, 1)) * 180/Math.PI;
+  elBeta.textContent = beta.toFixed(1)+'°';
+  elBiRange.textContent = (Rt+Rr).toFixed(2)+' km';
+
+  var snr = illuminated ? randRange(14,22) : randRange(2,7);
+  elSNR.textContent = snr.toFixed(1)+' dB';
+
+  elConf.textContent = Math.round(track.confidence)+'%';
+  confFill.style.width = track.confidence+'%';
+
+  if(!calibrated){
+    calDot.className = 'dot calibrating';
+    calValue.textContent = 'Calibrating';
+  } else {
+    calDot.className = 'dot matched';
+    calValue.textContent = 'Locked';
+  }
+
+  if(track.coastTime < 0.25){
+    trackDot.className = 'dot matched';
+    trackValue.textContent = 'Matched';
+  } else if(track.coastTime < 1.5){
+    trackDot.className = 'dot coast';
+    trackValue.textContent = 'Coasting';
+  } else {
+    trackDot.className = 'dot coast';
+    trackValue.textContent = 'Acquiring';
+  }
+
+  sweepValue.textContent = sweepCount;
+}
+
+// ============================================================
+// Main loop
+// ============================================================
+function frame(now){
+  var dt = Math.min(0.05, (now-lastFrame)/1000);
+  lastFrame = now;
+
+  if(playing) updateSim(dt);
+  renderScope();
+  renderIF();
+  renderProfile();
+  var geo = renderGeo();
+  updateHUD(geo);
+
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// ============================================================
+// Controls
+// ============================================================
+var btnPlay = document.getElementById('btnPlay');
+btnPlay.addEventListener('click', function(){
+  playing = !playing;
+  btnPlay.innerHTML = playing ? '<span>&#10074;&#10074;</span>Pause Sweep' : '<span>&#9654;</span>Resume Sweep';
+});
+
+document.getElementById('btnManeuver').addEventListener('click', function(){
+  maneuverT = 1.4;
+});
+
+document.getElementById('btnReset').addEventListener('click', function(){
+  target.x = -6.5; target.y = 9.0; target.vx = 0.62; target.vy = 0.05;
+  track.x = target.x; track.y = target.y; track.vx = target.vx; track.vy = target.vy;
+  track.coastTime = 0; track.confidence = 40;
+  sweepAz = AZ_MIN; sweepDir = 1; sweepCount = 0;
+  simTime = 0; calibrated = false; maneuverT = 0;
+  for(var i=0;i<ifBuffer.length;i++) ifBuffer[i]=0;
+  for(var j=0;j<rangeProfile.length;j++) rangeProfile[j]=0.05+Math.random()*0.05;
+});
+
+})();
+</script>
+</body>
+</html>
