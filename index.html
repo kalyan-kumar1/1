@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kalyan Kumar — AI Strategy · Security Architecture · Business Analysis</title>
+<meta name="description" content="Kalyan Kumar — MIT & MIT Sloan. AI/LLM product strategy, cyber security architecture, and business analysis across Google, BCG, and Fortinet.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0A0E14;
+    --panel:#0F1622;
+    --panel-2:#111B2B;
+    --line:#1E2A3C;
+    --line-soft:#161F2E;
+    --text:#E9EEF4;
+    --text-dim:#93A2B6;
+    --text-faint:#5A6A80;
+    --cyan:#4FD1E8;
+    --cyan-dim:#2C6E7A;
+    --gold:#CBA24E;
+    --gold-dim:#7A662F;
+    --radius:2px;
+    --mono:'JetBrains Mono', monospace;
+    --sans:'IBM Plex Sans', sans-serif;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+
+  html{scroll-behavior:smooth;}
+
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto;}
+    *{animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important;}
+  }
+
+  body{
+    background:var(--ink);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+
+  body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    background-image:
+      linear-gradient(var(--line-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+    background-size:64px 64px;
+    opacity:0.35;
+    pointer-events:none;
+    z-index:0;
+  }
+
+  a{color:inherit;text-decoration:none;}
+
+  ::selection{background:var(--cyan-dim); color:var(--text);}
+
+  :focus-visible{
+    outline:2px solid var(--cyan);
+    outline-offset:3px;
+  }
+
+  .wrap{
+    max-width:1080px;
+    margin:0 auto;
+    padding:0 32px;
+    position:relative;
+    z-index:1;
+  }
+
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:var(--cyan);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:18px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:7px;height:7px;
+    background:var(--cyan);
+    border-radius:50%;
+    box-shadow:0 0 8px var(--cyan);
+    flex-shrink:0;
+  }
+  .eyebrow.gold{color:var(--gold);}
+  .eyebrow.gold::before{background:var(--gold); box-shadow:0 0 8px var(--gold);}
+
+  /* ===== NAV ===== */
+  header{
+    position:fixed;
+    top:0; left:0; right:0;
+    z-index:50;
+    background:rgba(10,14,20,0.82);
+    backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  nav{
+    max-width:1080px;
+    margin:0 auto;
+    padding:18px 32px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .logo{
+    font-family:var(--mono);
+    font-weight:700;
+    font-size:14px;
+    letter-spacing:0.05em;
+    color:var(--text);
+  }
+  .logo span{color:var(--cyan);}
+  .navlinks{
+    display:flex;
+    gap:32px;
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  .navlinks a{transition:color .2s;}
+  .navlinks a:hover{color:var(--cyan);}
+  .nav-toggle{display:none;}
+
+  @media (max-width:720px){
+    .navlinks{display:none;}
+  }
+
+  /* ===== HERO ===== */
+  .hero{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding-top:120px;
+    padding-bottom:80px;
+    position:relative;
+  }
+
+  .hero-kicker{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--text-faint);
+    letter-spacing:0.12em;
+    margin-bottom:28px;
+    max-width:640px;
+  }
+  .hero-kicker .cursor{
+    display:inline-block;
+    width:8px;height:14px;
+    background:var(--cyan);
+    margin-left:2px;
+    animation:blink 1s steps(1) infinite;
+    vertical-align:middle;
+  }
+  @keyframes blink{50%{opacity:0;}}
+
+  h1.name{
+    font-family:var(--mono);
+    font-weight:800;
+    font-size:clamp(40px, 8vw, 84px);
+    line-height:0.98;
+    letter-spacing:-0.02em;
+    color:var(--text);
+    margin-bottom:22px;
+  }
+  h1.name .accent{
+    background:linear-gradient(90deg, var(--cyan), var(--gold));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+
+  .role-line{
+    font-size:clamp(17px,2.4vw,22px);
+    color:var(--text-dim);
+    font-weight:300;
+    max-width:680px;
+    margin-bottom:36px;
+  }
+  .role-line strong{color:var(--text); font-weight:500;}
+
+  .hero-tags{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-bottom:48px;
+  }
+  .tag{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    padding:7px 12px;
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    border-radius:var(--radius);
+  }
+
+  .hero-cta{
+    display:flex;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  .btn{
+    font-family:var(--mono);
+    font-size:13px;
+    letter-spacing:0.05em;
+    padding:14px 26px;
+    border-radius:var(--radius);
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    transition:all .2s ease;
+    border:1px solid transparent;
+  }
+  .btn-primary{
+    background:var(--cyan);
+    color:#04141A;
+    font-weight:700;
+  }
+  .btn-primary:hover{background:#6EE0F2; transform:translateY(-1px);}
+  .btn-ghost{
+    border-color:var(--line);
+    color:var(--text);
+  }
+  .btn-ghost:hover{border-color:var(--gold); color:var(--gold);}
+
+  .scroll-hint{
+    position:absolute;
+    bottom:28px; left:32px;
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--text-faint);
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .scroll-hint .bar{
+    width:1px; height:36px;
+    background:linear-gradient(var(--cyan), transparent);
+    animation:scrolldown 1.8s ease-in-out infinite;
+  }
+  @keyframes scrolldown{
+    0%{transform:scaleY(0); transform-origin:top;}
+    50%{transform:scaleY(1); transform-origin:top;}
+    50.1%{transform-origin:bottom;}
+    100%{transform:scaleY(0); transform-origin:bottom;}
+  }
+  @media (max-width:720px){ .scroll-hint{display:none;} }
+
+  /* ===== SECTION SHELL ===== */
+  section{
+    padding:110px 0;
+    border-top:1px solid var(--line);
+    position:relative;
+  }
+  .section-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    margin-bottom:56px;
+    gap:24px;
+    flex-wrap:wrap;
+  }
+  h2.section-title{
+    font-family:var(--mono);
+    font-weight:700;
+    font-size:clamp(26px,4vw,38px);
+    letter-spacing:-0.01em;
+  }
+  .section-note{
+    font-size:14px;
+    color:var(--text-faint);
+    max-width:360px;
+    text-align:right;
+  }
+  @media (max-width:720px){ .section-note{text-align:left;} }
+
+  /* ===== PROFILE ===== */
+  .profile-grid{
+    display:grid;
+    grid-template-columns:1.4fr 1fr;
+    gap:56px;
+  }
+  @media (max-width:820px){ .profile-grid{grid-template-columns:1fr;} }
+  .profile-text p{
+    font-size:17px;
+    color:var(--text-dim);
+    margin-bottom:18px;
+    max-width:60ch;
+  }
+  .profile-text strong{color:var(--text); font-weight:600;}
+
+  .stat-block{
+    border:1px solid var(--line);
+    background:var(--panel);
+    padding:26px;
+    border-radius:var(--radius);
+  }
+  .stat-row{
+    display:flex;
+    justify-content:space-between;
+    padding:14px 0;
+    border-bottom:1px solid var(--line-soft);
+    font-family:var(--mono);
+    font-size:13px;
+  }
+  .stat-row:last-child{border-bottom:none;}
+  .stat-row .k{color:var(--text-faint);}
+  .stat-row .v{color:var(--text); text-align:right;}
+
+  /* ===== TIMELINE (signature element) ===== */
+  .timeline{
+    position:relative;
+    padding-left:36px;
+  }
+  .timeline::before{
+    content:"";
+    position:absolute;
+    left:7px; top:6px; bottom:6px;
+    width:1px;
+    background:linear-gradient(var(--cyan), var(--line) 15%, var(--line) 85%, var(--gold));
+  }
+  .node{
+    position:relative;
+    padding-bottom:64px;
+  }
+  .node:last-child{padding-bottom:0;}
+  .node::before{
+    content:"";
+    position:absolute;
+    left:-36px; top:4px;
+    width:15px; height:15px;
+    border-radius:50%;
+    background:var(--ink);
+    border:2px solid var(--dot, var(--cyan));
+    box-shadow:0 0 0 4px var(--ink), 0 0 14px var(--dot, var(--cyan));
+  }
+  .node.gold{--dot:var(--gold);}
+  .node.cyan{--dot:var(--cyan);}
+
+  .node-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    flex-wrap:wrap;
+    gap:8px 20px;
+    margin-bottom:6px;
+  }
+  .node-role{
+    font-family:var(--mono);
+    font-weight:700;
+    font-size:18px;
+    color:var(--text);
+  }
+  .node-date{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--text-faint);
+    letter-spacing:0.05em;
+    white-space:nowrap;
+  }
+  .node-org{
+    font-size:14px;
+    color:var(--dot, var(--cyan));
+    font-weight:600;
+    margin-bottom:14px;
+    font-family:var(--mono);
+  }
+  .node ul{
+    list-style:none;
+    color:var(--text-dim);
+    font-size:15px;
+    max-width:66ch;
+  }
+  .node li{
+    position:relative;
+    padding-left:18px;
+    margin-bottom:9px;
+  }
+  .node li::before{
+    content:"›";
+    position:absolute; left:0;
+    color:var(--text-faint);
+  }
+
+  /* ===== SKILLS DUAL GRID ===== */
+  .skills-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+  }
+  @media (max-width:720px){ .skills-grid{grid-template-columns:1fr;} }
+  .skill-col{
+    background:var(--panel);
+    padding:36px;
+  }
+  .skill-col h3{
+    font-family:var(--mono);
+    font-size:14px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    margin-bottom:22px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .skill-col.tech h3{color:var(--cyan);}
+  .skill-col.biz h3{color:var(--gold);}
+  .chip-row{display:flex; flex-wrap:wrap; gap:9px;}
+  .chip{
+    font-size:13px;
+    padding:8px 13px;
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    border-radius:var(--radius);
+    transition:all .2s;
+  }
+  .skill-col.tech .chip:hover{border-color:var(--cyan); color:var(--cyan);}
+  .skill-col.biz .chip:hover{border-color:var(--gold); color:var(--gold);}
+
+  /* ===== CERTIFICATIONS LEDGER ===== */
+  .ledger{
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .ledger-row{
+    display:grid;
+    grid-template-columns:100px 1fr 160px;
+    gap:16px;
+    padding:18px 24px;
+    border-bottom:1px solid var(--line-soft);
+    align-items:center;
+    background:var(--panel);
+    transition:background .2s;
+  }
+  .ledger-row:last-child{border-bottom:none;}
+  .ledger-row:hover{background:var(--panel-2);}
+  .ledger-row.head{
+    background:var(--ink);
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    padding:12px 24px;
+  }
+  .ledger-year{font-family:var(--mono); color:var(--gold); font-size:13px;}
+  .ledger-name{font-size:14.5px; color:var(--text);}
+  .ledger-issuer{font-family:var(--mono); font-size:12px; color:var(--text-faint); text-align:right;}
+  @media (max-width:640px){
+    .ledger-row{grid-template-columns:70px 1fr; }
+    .ledger-issuer{display:none;}
+  }
+
+  /* ===== EDUCATION ===== */
+  .edu-list{display:flex; flex-direction:column; gap:0;}
+  .edu-item{
+    display:grid;
+    grid-template-columns:140px 1fr;
+    gap:24px;
+    padding:26px 0;
+    border-bottom:1px solid var(--line-soft);
+  }
+  .edu-item:last-child{border-bottom:none;}
+  .edu-year{font-family:var(--mono); font-size:13px; color:var(--text-faint);}
+  .edu-school{font-weight:600; font-size:17px; margin-bottom:4px;}
+  .edu-degree{color:var(--text-dim); font-size:14.5px;}
+  .edu-honor{
+    display:inline-block;
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--gold);
+    margin-top:8px;
+    letter-spacing:0.04em;
+  }
+  @media (max-width:640px){
+    .edu-item{grid-template-columns:1fr; gap:6px;}
+  }
+
+  /* ===== LANGUAGES ===== */
+  .demo-toggle{
+    margin-top:14px;
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--cyan);
+    background:transparent;
+    border:1px solid var(--cyan-dim);
+    padding:9px 16px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    transition:all .2s ease;
+  }
+  .demo-toggle:hover{border-color:var(--cyan); color:#fff;}
+  .demo-toggle.active{background:var(--cyan); color:#04141A; border-color:var(--cyan); font-weight:700;}
+  .demo-frame{
+    max-height:0;
+    overflow:hidden;
+    transition:max-height .4s ease;
+    border-radius:var(--radius);
+  }
+  .demo-frame.open{
+    max-height:640px;
+    margin-top:18px;
+    border:1px solid var(--line);
+  }
+  .demo-frame iframe{
+    width:100%;
+    height:600px;
+    border:0;
+    display:block;
+    background:#0B1220;
+  }
+  @media (max-width:720px){
+    .demo-frame.open{max-height:440px;}
+    .demo-frame iframe{height:420px;}
+  }
+
+  .lang-row{
+    display:flex;
+    gap:40px;
+    flex-wrap:wrap;
+  }
+  .lang{
+    font-family:var(--mono);
+    font-size:13px;
+    color:var(--text-dim);
+  }
+  .lang b{color:var(--text); display:block; font-size:15px; margin-bottom:4px; font-family:var(--sans); font-weight:600;}
+
+  /* ===== FOOTER / CONTACT ===== */
+  footer{
+    padding:100px 0 60px;
+    text-align:center;
+  }
+  footer h2{
+    font-family:var(--mono);
+    font-size:clamp(28px,5vw,46px);
+    margin-bottom:22px;
+  }
+  footer p{color:var(--text-dim); max-width:52ch; margin:0 auto 40px; font-size:15px;}
+  .contact-links{
+    display:flex;
+    justify-content:center;
+    gap:16px;
+    flex-wrap:wrap;
+    margin-bottom:64px;
+  }
+  .foot-bottom{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--text-faint);
+    letter-spacing:0.05em;
+    display:flex;
+    justify-content:space-between;
+    padding-top:32px;
+    border-top:1px solid var(--line);
+  }
+  @media (max-width:640px){ .foot-bottom{flex-direction:column; gap:8px; text-align:center;} }
+
+  .reveal{
+    opacity:0;
+    transform:translateY(18px);
+    transition:opacity .7s ease, transform .7s ease;
+  }
+  .reveal.in{
+    opacity:1;
+    transform:translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <nav>
+    <div class="logo">KK<span>_</span>KALYAN</div>
+    <div class="navlinks">
+      <a href="#profile">Profile</a>
+      <a href="#education">Academic record</a>
+      <a href="#experience">Experience</a>
+      <a href="#credentials">Credentials</a>
+      <a href="#skills">Skills</a>
+      <a href="#contact">Contact</a>
+    </div>
+  </nav>
+</header>
+
+<section class="hero wrap" id="top" style="border-top:none;">
+  <div class="hero-kicker">$ whoami<span class="cursor"></span></div>
+  <h1 class="name">KALYAN<br><span class="accent">KUMAR</span></h1>
+  <p class="role-line">
+    <strong>AI &amp; LLM product strategist</strong> and <strong>security architect</strong> trained at MIT and MIT Sloan —
+    building the bridge between engineering depth and boardroom decisions. Ex-<strong>Google</strong>, ex-<strong>BCG</strong>, ex-<strong>Fortinet</strong>.
+  </p>
+  <div class="hero-tags">
+    <span class="tag">MIT EECS · MIT Sloan MBA</span>
+    <span class="tag">Databricks Certified Data Engineer</span>
+    <span class="tag">FINRA Series 7 / 63 / 79 / SIE</span>
+    <span class="tag">Boston, USA</span>
+  </div>
+  <div class="hero-cta">
+    <a class="btn btn-primary" href="mailto:kalyanparames@gmail.com">Email Kalyan</a>
+    <a class="btn btn-ghost" href="#experience">View career log ↓</a>
+  </div>
+
+  <div class="scroll-hint"><span class="bar"></span>SCROLL</div>
+</section>
+
+<section class="wrap" id="profile">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">00 — Profile</div>
+      <h2 class="section-title">Two disciplines,<br>one operator.</h2>
+    </div>
+    <p class="section-note">Reading engineering and Executive rooms fluently and translating between them.</p>
+  </div>
+
+  <div class="profile-grid">
+    <div class="profile-text reveal">
+      <p>Business Analyst and Databricks Certified Data Engineer with an <strong>MBA from MIT Sloan</strong> and an <strong>EECS degree from MIT</strong>. Built AI/LLM product strategy for enterprise workforce tools at <strong>Google</strong>, and translated client needs into actionable product roadmaps at <strong>BCG</strong>.</p>
+      <p>Combines rare depth in ML/AI and security engineering with strong commercial awareness — thriving at the intersection of technology, user value, and business impact. Fluent in both engineering and executive conversations.</p>
+      <p>Prior life in network security architecture at <strong>Fortinet</strong>, autonomous systems research at <strong>NVIDIA</strong> and <strong>MIT CSAIL</strong>, and radar signal processing at the <strong>European Space Research and Technology Centre</strong>.</p>
+    </div>
+    <div class="stat-block reveal">
+      <div class="stat-row"><span class="k">LOCATION</span><span class="v">Boston, USA</span></div>
+      <div class="stat-row"><span class="k">FOCUS</span><span class="v">AI Strategy · Cyber Security</span></div>
+      <div class="stat-row"><span class="k">DEGREES</span><span class="v">MBA · M.Eng · S.B.</span></div>
+      <div class="stat-row"><span class="k">LICENSES</span><span class="v">Series 7 · 63 · 79 · SIE</span></div>
+      <div class="stat-row"><span class="k">LANGUAGES</span><span class="v">EN · FR · NL</span></div>
+      <div class="stat-row"><span class="k">CONTACT</span><span class="v">720-061-1124</span></div>
+    </div>
+  </div>
+</section>
+<section class="wrap" id="education">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow">01 — Education</div>
+      <h2 class="section-title">Academic record.</h2>
+    </div>
+  </div>
+
+  <div class="edu-list reveal">
+    <div class="edu-item">
+      <span class="edu-year">2024 – 2026</span>
+      <div>
+        <div class="edu-school">MIT Sloan School of Management</div>
+        <div class="edu-degree">Master of Business Administration (MBA) · Cambridge, MA</div>
+        <span class="edu-honor">★ Elizabeth Monrad Fellowship</span>
+      </div>
+    </div>
+    <div class="edu-item">
+      <span class="edu-year">2022 – 2023</span>
+      <div>
+        <div class="edu-school">Massachusetts Institute of Technology</div>
+        <div class="edu-degree">M.Eng. in Computer Science (ECS) · Cambridge, MA</div>
+        <span class="edu-honor">★ Phi Beta Kappa</span>
+      </div>
+    </div>
+    <div class="edu-item">
+      <span class="edu-year">2018 – 2022</span>
+      <div>
+        <div class="edu-school">Massachusetts Institute of Technology</div>
+        <div class="edu-degree">S.B. Electrical Engineering &amp; Computer Science · Cambridge, MA</div>
+        <span class="edu-honor">★ Phi Beta Kappa · Times Scholar (1 of 20 / 45,000 applicants)</span>
+      </div>
+    </div>
+    <div class="edu-item">
+      <span class="edu-year">2018 – 2019</span>
+      <div>
+        <div class="edu-school">École Polytechnique</div>
+        <div class="edu-degree">Dual Enrolment — Computer Science &amp; Mathematics · Paris, France</div>
+         <span class="edu-honor">★ Campus France Excellence Eiffel scholarship</span>
+      </div>
+    </div>
+</section>
+  
+<section class="wrap" id="experience">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow gold">02 — Experience</div>
+      <h2 class="section-title">Career signal log.</h2>
+    </div>
+    <p class="section-note"><span style="color:var(--cyan)">●</span> technical &nbsp; <span style="color:var(--gold)">●</span> commercial</p>
+  </div>
+
+  <div class="timeline">
+
+    <div class="node gold reveal">
+      <div class="node-head">
+        <span class="node-role">Associate — Contract</span>
+        <span class="node-date">OCT 2024 – AUG 2025</span>
+      </div>
+      <div class="node-org">Boston Consulting Group (BCG) · Boston / Global</div>
+      <ul>
+        <li>Developed competitive business strategies and market-entry plans for Fortune 500 clients across the US and Europe.</li>
+        <li>Redesigned business processes, driving measurable gains in throughput and cost reduction.</li>
+        <li>Led a team of 12 analysts across 5 technology startups, delivering operations analysis and quality improvement programs.</li>
+        <li>Published Lean Six Sigma toolkits adopted across client engagements.</li>
+      </ul>
+    </div>
+
+    <div class="node cyan reveal">
+      <div class="node-head">
+        <span class="node-role">AI Implementation Strategist &amp; Cyber Security Architect</span>
+        <span class="node-date">JAN 2023 – AUG 2024</span>
+      </div>
+      <div class="node-org">Google · Toronto, CA / Boston</div>
+      <ul>
+        <li>Defined product strategy and roadmap for integrating multimodal LLM capabilities into Google Workforce productivity tools.</li>
+        <li>Led LLM integration into workforce products and built AI-driven behavioral analytics to surface hidden cyber threats.</li>
+        <li>Advised on enterprise data governance, compliance frameworks, and encryption standards (Common Criteria EAL 4+).</li>
+        <li>Drove cross-functional alignment across engineering, legal, and product teams to ship compliant AI features at scale.</li>
+      </ul>
+    </div>
+
+    <div class="node cyan reveal">
+      <div class="node-head">
+        <span class="node-role">Global NSE Architect <span style="color:var(--text-faint); font-weight:400;">(FCX Certified)</span></span>
+        <span class="node-date">MAY 2022 – DEC 2022</span>
+      </div>
+      <div class="node-org">Fortinet · Atlanta, USA / Global</div>
+      <ul>
+        <li>Managed global IT infrastructure across France, USA, China, India, Switzerland, and Morocco.</li>
+        <li>Led migration of physical and virtual server environments, reducing operational overhead.</li>
+      </ul>
+    </div>
+
+    <div class="node cyan reveal">
+      <div class="node-head">
+        <span class="node-role">Software Engineering Intern — Autonomous Vehicles</span>
+        <span class="node-date">MAY 2021 – AUG 2021</span>
+      </div>
+      <div class="node-org">NVIDIA — Spatial Intelligence Lab · Canada</div>
+      <ul>
+        <li>Optimised CI/CD testing pipelines for mapping software, cutting CPU utilisation by 5% via parallel programming.</li>
+        <li>Contributed design proposals for autonomous truck platooning systems.</li>
+      </ul>
+      <button class="demo-toggle" type="button" data-target="demo-nvidia">▸ Research Interactive View</button>
+      <div class="demo-frame" id="demo-nvidia">
+        <iframe data-src="nvidia.html" title="NVIDIA / Autonomous Vehicles" loading="lazy"></iframe>
+      </div>
+      </div>
+
+    <div class="node cyan reveal">
+      <div class="node-head">
+        <span class="node-role">Research Intern</span>
+        <span class="node-date">DEC 2020 - FEB 2021</span>
+      </div>
+      <div class="node-org">KAUST (King Abdullah University of Science and Technology)· Saudi Arabia</div>
+      <ul>
+        <li>Developed an LSTM-based fully convolutional network for pedestrian intersection estimation and intention tracking in crowded zones.</li>
+        <li> Benchmarked performance against CVPR-GNN, JAAD, PIE, SocialCNN, and AlexNet.</li>
+      </ul>
+      <button class="demo-toggle" type="button" data-target="demo-kaust">▸ Research Interactive View</button>
+      <div class="demo-frame" id="demo-kaust">
+        <iframe data-src="Kaust.html" title="KAUST / Pedestrian Intention Tracking" loading="lazy"></iframe>
+      </div>
+    </div>
+
+    <div class="node cyan reveal">
+      <div class="node-head">
+        <span class="node-role">Research Intern</span>
+        <span class="node-date">MAY 2020 – AUG 2020</span>
+      </div>
+      <div class="node-org">European Space Research and Technology Centre (ESTEC) · Netherlands</div>
+      <ul>
+        <li>Delivered signal processing algorithms and proof-of-concept measurements for radar imaging systems.</li>
+      </ul>
+    </div>
+
+    <div class="node cyan reveal">
+      <div class="node-head">
+        <span class="node-role">Research Intern</span>
+        <span class="node-date">MAY 2019 - SEP 2019</span>
+      </div>
+      <div class="node-org">Nanyang Technological University · Singapore</div>
+      <ul>
+        <li>Productionized a ROS package enabling precise robot arm trajectory generation and tracking.</li>
+        <li>Utilized Jira, Docker, and GitHub for industrial-grade software development and testing</li>
+      </ul>
+      <button class="demo-toggle" type="button" data-target="demo-ntu-jira">▸ Jira Workflow View</button>
+      <div class="demo-frame" id="demo-ntu-jira">
+        <iframe data-src="NTU_JIRA.html" title="ARM-7 / Industrial Arm" loading="lazy"></iframe>
+      </div>
+      <button class="demo-toggle" type="button" data-target="demo-ntu-project">▸ Research Interactive View</button>
+      <div class="demo-frame" id="demo-ntu-project">
+        <iframe data-src="NTU_project.html" title="ARM-7 / Trajectory Project" loading="lazy"></iframe>
+      </div>
+    </div>
+    <div class="node cyan reveal">
+      <div class="node-head">
+        <span class="node-role">UROP Intern</span>
+        <span class="node-date">2019 – 2020</span>
+      </div>
+      <div class="node-org">MIT CSAIL · USA</div>
+      <ul>
+        <li>Researched trajectory-progress vs. information-gain tradeoffs in navigation planning.</li>
+        <li>Developed robust navigation algorithms using floor-plan and AR-tag tracking, and an autonomous mobile platform.</li>
+      </ul>
+      <button class="demo-toggle" type="button" data-target="demo-urop">▸ Research Interactive View</button>
+      <div class="demo-frame" id="demo-urop">
+        <iframe data-src="project1.html" title="MIT UROP / Autonomous Floor Navigation View" loading="lazy"></iframe>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap" id="skills">
+  <div class="section-head">
+    <div>
+      <div style="margin-top:56px;" class="reveal">
+      <div class="eyebrow">03 — Capabilities</div>
+      <h2 class="section-title">Dual competency stack.</h2>
+    </div>
+    <p class="section-note">Engineering fluency on one side, Executive fluency on the other.</p>
+  </div>
+
+  <div class="skills-grid reveal">
+    <div class="skill-col tech">
+      <h3>Technical</h3>
+      <div class="chip-row">
+        <span class="chip">AI-Driven Threat Detection</span>
+        <span class="chip">Behavioral Analytics</span>
+        <span class="chip">Network Security Engineering</span>
+        <span class="chip">Enterprise Data Governance</span>
+        <span class="chip">Python</span>
+        <span class="chip">TensorFlow</span>
+        <span class="chip">PyTorch</span>
+        <span class="chip">Scikit-learn</span>
+        <span class="chip">SQL · PostgreSQL · MySQL</span>
+        <span class="chip">Bash · R</span>
+        <span class="chip">Flask · CI/CD</span>
+        <span class="chip">MATLAB</span>
+      </div>
+    </div>
+    <div class="skill-col biz">
+      <h3>Commercial</h3>
+      <div class="chip-row">
+        <span class="chip">Strategy Development</span>
+        <span class="chip">Market Analysis</span>
+        <span class="chip">Stakeholder Management</span>
+        <span class="chip">Change Management</span>
+        <span class="chip">Lean Six Sigma</span>
+        <span class="chip">Digital Transformation</span>
+        <span class="chip">Cross-Functional Leadership</span>
+        <span class="chip">Data-Driven Decision Making</span>
+        <span class="chip">Software Product Management</span>
+        <span class="chip">Security Risk Mitigation</span>
+        <span class="chip">Tableau · Excel · Jira</span>
+        <span class="chip">OKRs · Agile</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap" id="credentials">
+  <div class="section-head">
+    <div>
+      <div class="eyebrow gold">04 — Credentials</div>
+      <h2 class="section-title">Licenses &amp; certifications.</h2>
+    </div>
+    <p class="section-note">Finance-licensed and Data-Engineer certified — audit trail below.</p>
+  </div>
+  <div class="ledger reveal">
+    <div class="ledger-row head">
+      <span>Year</span><span>Credential</span><span>Issuer</span>
+        </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2026</span>
+      <span class="ledger-name">Project Management Professional (PMP)</span>
+      <span class="ledger-issuer">Project Management Institute</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2026</span>
+      <span class="ledger-name">Securities Industry Essentials Exam (SIE)</span>
+      <span class="ledger-issuer">FINRA</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2026</span>
+      <span class="ledger-name">AI FOR EVERYONE</span>
+      <span class="ledger-issuer">DeepLearning.AI</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2025</span>
+      <span class="ledger-name">Data Engineer Professional</span>
+      <span class="ledger-issuer">Databricks</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2025</span>
+      <span class="ledger-name">Series 79 — Investment Banking Representative</span>
+      <span class="ledger-issuer">FINRA</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2024</span>
+      <span class="ledger-name">NFA Swaps Proficiency Requirements</span>
+      <span class="ledger-issuer">National Futures Association</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2024</span>
+      <span class="ledger-name">Data Engineer Associate</span>
+      <span class="ledger-issuer">Databricks</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2023</span>
+      <span class="ledger-name">Series 63 — Uniform Securities Agent State Law Exam</span>
+      <span class="ledger-issuer">FINRA</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2023</span>
+      <span class="ledger-name">Series 7 — General Securities Representative Exam</span>
+      <span class="ledger-issuer">FINRA</span>
+    </div>
+</section>
+    
+</section>
+  <section class="wrap" id="06 - Languages">
+    <div style="margin-top:56px;" class="reveal">
+    <div class="eyebrow"> 06 - Languages</div>
+    <div class="lang-row">
+      <div class="lang"><b>English</b>Native · Cambridge C2 Proficiency · ACT 32/36</div>
+      <div class="lang"><b>Français</b>Fluent (C2) · DALF, CIEP</div>
+      <div class="lang"><b>Dutch</b>Basic — active learning</div>
+    </div>
+
+</section>
+  <div style="margin-top:56px;" class="reveal">
+  <section class="wrap" id="07 — Contact">
+<footer class="wrap" id="contact">
+  <div style="margin-top:56px;" class="reveal">
+  <div class="eyebrow" style="justify-content:center;"> 07 — Contact</div>
+  <h2>Let's build the bridge<br>between the two rooms.</h2>
+  <p>Open to conversations on AI product strategy, security architecture, and roles where technical depth needs a commercial voice.</p>
+  <div class="contact-links">
+    <a class="btn btn-primary" href="mailto:kalyanparames@gmail.com">kalyanparames@gmail.com</a>
+    <a class="btn btn-ghost" href="https://github.com/kalyan-kumar">Github</a>
+    <a class="btn btn-ghost" href="https://muckrack.com/kalyan-kumar">MUCKRACK</a>
+    <a class="btn btn-ghost" href="https://www.picturecorrect.com/authors/kalyan-kumar/">PictureCorrect</a>
+    <a class="btn btn-ghost" href="https://www.linkedin.com/in/kalyankum/">LinkedIn</a>
+  </div>
+
+
+<script>
+  // Scroll reveal
+  const revealEls = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{
+      if(e.isIntersecting){
+        e.target.classList.add('in');
+        io.unobserve(e.target);
+      }
+    });
+  }, {threshold:0.12});
+  revealEls.forEach(el=>io.observe(el));
+
+  // Terminal boot line rotation
+  const roles = ["whoami", "Engineer", "AI Strategist", "Security Architect", "Business Analyst"];
+  const kicker = document.querySelector('.hero-kicker');
+  let idx = 0;
+  if(kicker){
+    const cursor = kicker.querySelector('.cursor');
+    setInterval(()=>{
+      idx = (idx+1) % roles.length;
+      kicker.firstChild.textContent = "$ " + roles[idx];
+    }, 2200);
+  }
+
+  // Inline project-demo toggles (loads the demo iframe in place, on the same page)
+  document.querySelectorAll('.demo-toggle').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var frame = document.getElementById(btn.dataset.target);
+      var isOpen = frame.classList.toggle('open');
+      btn.classList.toggle('active', isOpen);
+      btn.textContent = isOpen ? '▾ Hide interactive demo' : '▸ View interactive demo';
+      if(isOpen){
+        var iframe = frame.querySelector('iframe');
+        if(iframe && !iframe.getAttribute('src')){
+          iframe.setAttribute('src', iframe.getAttribute('data-src'));
+        }
+      }
+    });
+  });
+</script>
+  <div class="foot-bottom">
+    <span>© 2026 KALYAN KUMAR</span>
+    <span>BOSTON, USA</span>
+    <span>Engineer to Stragist</span> 
+  </div>
+</footer>
+</body>
+</html>
