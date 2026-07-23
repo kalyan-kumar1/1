@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARM-7 / Industrial Manipulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0A1214;
+    --bg-radial: #0E1B1E;
+    --panel: rgba(18,24,27,0.72);
+    --panel-solid: #121A1D;
+    --line: rgba(124,138,143,0.18);
+    --line-strong: rgba(124,138,143,0.32);
+    --amber: #FFB020;
+    --amber-dim: rgba(255,176,32,0.16);
+    --cyan: #4FD1C5;
+    --cyan-dim: rgba(79,209,197,0.14);
+    --text: #E8EDEF;
+    --text-muted: #7C8A8F;
+    --text-faint: #4A5659;
+    --danger: #FF5D5D;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{
+    width:100%; height:100%; overflow:hidden;
+    background: var(--bg);
+    font-family:'JetBrains Mono', monospace;
+    color: var(--text);
+  }
+  #scene{position:fixed; inset:0; z-index:1;}
+
+  /* subtle vignette + grain-like radial */
+  #scene::after{content:'';}
+  .vignette{
+    position:fixed; inset:0; z-index:2; pointer-events:none;
+    background: radial-gradient(ellipse at 50% 60%, transparent 0%, transparent 45%, rgba(0,0,0,0.55) 100%);
+  }
+
+  .hud{position:fixed; inset:0; z-index:5; pointer-events:none; padding: 28px;}
+  .hud > *{pointer-events:auto;}
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    display:flex; align-items:flex-start; justify-content:space-between;
+    gap: 24px;
+  }
+  .brand{
+    display:flex; flex-direction:column; gap: 4px;
+  }
+  .brand-mark{
+    display:flex; align-items:center; gap:10px;
+  }
+  .brand-mark .glyph{
+    width:34px; height:34px; border:1.5px solid var(--amber);
+    display:flex; align-items:center; justify-content:center;
+    border-radius:4px; position:relative;
+  }
+  .brand-mark .glyph::before{
+    content:''; width:10px; height:10px; background:var(--amber);
+    border-radius:1px;
+  }
+  .brand-mark h1{
+    font-family:'Oswald', sans-serif;
+    font-weight:600;
+    font-size: 22px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .brand-mark .model{
+    font-size:11px; color: var(--text-muted); letter-spacing:0.08em;
+  }
+  .brand-sub{
+    font-size:11px; color: var(--text-faint); letter-spacing:0.06em;
+    padding-left: 44px; text-transform:uppercase;
+  }
+
+  .status-pill{
+    display:flex; align-items:center; gap:10px;
+    background: var(--panel);
+    border:1px solid var(--line);
+    backdrop-filter: blur(10px);
+    padding: 10px 16px 10px 12px;
+    border-radius: 100px;
+  }
+  .dot{
+    width:8px; height:8px; border-radius:50%;
+    background: var(--amber);
+    box-shadow: 0 0 0 0 rgba(255,176,32,0.6);
+    animation: pulse 1.8s ease-out infinite;
+  }
+  .dot.paused{ background: var(--text-faint); animation:none; }
+  @keyframes pulse{
+    0%{ box-shadow: 0 0 0 0 rgba(255,176,32,0.55); }
+    70%{ box-shadow: 0 0 0 9px rgba(255,176,32,0); }
+    100%{ box-shadow: 0 0 0 0 rgba(255,176,32,0); }
+  }
+  .status-pill .label{
+    font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-muted);
+  }
+  .status-pill .value{
+    font-size:12px; font-weight:600; color:var(--text);
+    letter-spacing:0.06em;
+  }
+
+  /* ---------- Bottom telemetry panel ---------- */
+  .dock{
+    position:absolute; left:28px; bottom:28px;
+    display:flex; align-items:flex-end; gap:14px;
+  }
+  .panel{
+    background: var(--panel);
+    border:1px solid var(--line);
+    backdrop-filter: blur(14px);
+    border-radius: 10px;
+    padding: 16px 18px;
+    min-width: 260px;
+  }
+  .panel-title{
+    font-family:'Oswald', sans-serif;
+    font-size:11px; letter-spacing:0.14em; text-transform:uppercase;
+    color: var(--text-muted);
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 10px;
+  }
+  .panel-title .phase{
+    color: var(--amber); font-weight:600;
+  }
+  .joint-row{
+    display:grid;
+    grid-template-columns: 64px 1fr 52px;
+    align-items:center;
+    gap: 10px;
+    margin-bottom: 9px;
+    font-size: 11px;
+  }
+  .joint-row:last-child{margin-bottom:0;}
+  .joint-name{
+    color: var(--text-muted); letter-spacing:0.06em;
+  }
+  .joint-track{
+    height: 4px; background: rgba(124,138,143,0.15);
+    border-radius: 2px; position:relative; overflow:hidden;
+  }
+  .joint-fill{
+    position:absolute; top:0; bottom:0; left:0;
+    background: linear-gradient(90deg, var(--cyan), var(--amber));
+    border-radius:2px;
+    width:50%;
+  }
+  .joint-val{
+    text-align:right; color: var(--text); font-weight:600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat-panel{
+    display:flex; flex-direction:column; gap:14px;
+  }
+  .stat{
+    text-align:right;
+  }
+  .stat .n{
+    font-family:'Oswald', sans-serif;
+    font-size: 26px; font-weight:600; color: var(--text);
+    line-height:1;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .l{
+    font-size:10px; color: var(--text-muted); letter-spacing:0.12em;
+    text-transform:uppercase; margin-top:4px;
+  }
+
+  /* ---------- Controls ---------- */
+  .controls{
+    position:absolute; right:28px; bottom:28px;
+    display:flex; flex-direction:column; gap:8px;
+    align-items:flex-end;
+  }
+  .ctl-btn{
+    display:flex; align-items:center; gap:8px;
+    background: var(--panel);
+    border:1px solid var(--line);
+    backdrop-filter: blur(10px);
+    color: var(--text);
+    font-family:'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing:0.08em; text-transform:uppercase;
+    padding: 10px 14px;
+    border-radius: 8px;
+    cursor:pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .ctl-btn:hover{ border-color: var(--line-strong); background: rgba(24,32,35,0.85); }
+  .ctl-btn:focus-visible{ outline: 2px solid var(--cyan); outline-offset:2px; }
+  .ctl-btn .ic{
+    width:12px; height:12px; display:inline-flex; align-items:center; justify-content:center;
+  }
+
+  .axis-tag{
+    position:absolute; z-index:5; pointer-events:none;
+    font-size:10px; letter-spacing:0.1em; color: var(--cyan);
+    background: rgba(10,18,20,0.65);
+    border:1px solid var(--cyan-dim);
+    padding: 3px 7px; border-radius: 4px;
+    transform: translate(-50%,-50%);
+    white-space:nowrap;
+    opacity: 0.85;
+  }
+
+  @media (max-width: 720px){
+    .hud{padding:16px;}
+    .brand-mark h1{font-size:16px;}
+    .brand-sub{display:none;}
+    .status-pill .label{display:none;}
+    .dock{left:16px; bottom:16px; right:16px;}
+    .panel{min-width:0; flex:1;}
+    .stat-panel{flex-direction:row; gap:18px;}
+    .stat{text-align:left;}
+    .controls{right:16px; bottom:150px;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .dot{animation:none;}
+  }
+</style>
+</head>
+<body>
+
+<div id="scene"></div>
+<div class="vignette"></div>
+
+<div class="hud">
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <div class="glyph"></div>
+        <div>
+          <h1>ARM&#8209;7</h1>
+        </div>
+      </div>
+      <div class="brand-sub">Six&#8209;axis manipulator &middot; Cell&nbsp;04</div>
+    </div>
+    <div class="status-pill">
+      <span class="dot" id="statusDot"></span>
+      <span class="label">Status</span>
+      <span class="value" id="statusValue">Active</span>
+    </div>
+  </div>
+</div>
+
+<div class="dock">
+  <div class="panel" style="min-width:280px;">
+    <div class="panel-title">
+      <span>Joint Telemetry</span>
+      <span class="phase" id="phaseLabel">REACH</span>
+    </div>
+    <div class="joint-row">
+      <span class="joint-name">BASE</span>
+      <div class="joint-track"><div class="joint-fill" id="fillBase"></div></div>
+      <span class="joint-val" id="valBase">0&deg;</span>
+    </div>
+    <div class="joint-row">
+      <span class="joint-name">SHLDR</span>
+      <div class="joint-track"><div class="joint-fill" id="fillShoulder"></div></div>
+      <span class="joint-val" id="valShoulder">0&deg;</span>
+    </div>
+    <div class="joint-row">
+      <span class="joint-name">ELBOW</span>
+      <div class="joint-track"><div class="joint-fill" id="fillElbow"></div></div>
+      <span class="joint-val" id="valElbow">0&deg;</span>
+    </div>
+    <div class="joint-row">
+      <span class="joint-name">WRIST</span>
+      <div class="joint-track"><div class="joint-fill" id="fillWrist"></div></div>
+      <span class="joint-val" id="valWrist">0&deg;</span>
+    </div>
+    <div class="joint-row">
+      <span class="joint-name">GRIP</span>
+      <div class="joint-track"><div class="joint-fill" id="fillGrip"></div></div>
+      <span class="joint-val" id="valGrip">0%</span>
+    </div>
+  </div>
+
+  <div class="panel stat-panel">
+    <div class="stat">
+      <div class="n" id="cycleCount">0</div>
+      <div class="l">Cycles</div>
+    </div>
+    <div class="stat">
+      <div class="n" id="uptimeVal">00:00</div>
+      <div class="l">Uptime</div>
+    </div>
+  </div>
+
+  <div class="panel" style="min-width:200px;">
+    <div class="panel-title">
+      <span>AGV Cart</span>
+      <span class="phase" id="agvPhaseLabel">DOCK</span>
+    </div>
+    <div class="stat-panel" style="flex-direction:row; gap:18px;">
+      <div class="stat" style="text-align:left;">
+        <div class="n" id="agvReturns" style="font-size:20px;">0</div>
+        <div class="l">Returns</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="ctl-btn" id="btnPlay">
+    <span class="ic" id="playIcon">&#10074;&#10074;</span><span id="playLabel">Pause</span>
+  </button>
+  <button class="ctl-btn" id="btnReset">
+    <span class="ic">&#8635;</span>Reset View
+  </button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+  var COL = {
+    body: 0x1b262a,
+    bodyDark: 0x141d20,
+    accent: 0xffb020,
+    accentDark: 0xc4820f,
+    joint: 0x0e1517,
+    grip: 0xdfe6e8,
+    ground: 0x0c1417,
+    crate: 0xff8a3d
+  };
+
+  var scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x0a1214, 0.028);
+
+  var container = document.getElementById('scene');
+  var camera = new THREE.PerspectiveCamera(42, window.innerWidth/window.innerHeight, 0.1, 100);
+  var camHome = new THREE.Vector3(7.5, 5.5, 8.5);
+  camera.position.copy(camHome);
+  camera.lookAt(0,1.5,0);
+
+  var renderer = new THREE.WebGLRenderer({antialias:true, alpha:false});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.setClearColor(0x0a1214, 1);
+  container.appendChild(renderer.domElement);
+
+  var controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.target.set(0,1.5,0);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance = 4;
+  controls.maxDistance = 20;
+  controls.maxPolarAngle = Math.PI * 0.49;
+  controls.update();
+
+  // ---------- Lighting ----------
+  scene.add(new THREE.AmbientLight(0x2a3a3d, 1.1));
+  var key = new THREE.DirectionalLight(0xfff3de, 1.6);
+  key.position.set(6, 10, 4);
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048,2048);
+  key.shadow.camera.left = -8; key.shadow.camera.right = 8;
+  key.shadow.camera.top = 8; key.shadow.camera.bottom = -8;
+  key.shadow.bias = -0.0015;
+  scene.add(key);
+
+  var rim = new THREE.DirectionalLight(0x4fd1c5, 0.5);
+  rim.position.set(-6, 4, -6);
+  scene.add(rim);
+
+  var fillL = new THREE.PointLight(0xffb020, 0.6, 12);
+  fillL.position.set(0, 3.5, 3);
+  scene.add(fillL);
+
+  // ---------- Ground ----------
+  var groundGeo = new THREE.CircleGeometry(9, 64);
+  var groundMat = new THREE.MeshStandardMaterial({color: COL.ground, roughness:0.85, metalness:0.15});
+  var ground = new THREE.Mesh(groundGeo, groundMat);
+  ground.rotation.x = -Math.PI/2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  var grid = new THREE.GridHelper(18, 36, 0x27373b, 0x1a2529);
+  grid.position.y = 0.01;
+  grid.material.opacity = 0.5;
+  grid.material.transparent = true;
+  scene.add(grid);
+
+  // subtle amber ring under the base
+  var ringGeo = new THREE.RingGeometry(1.05, 1.12, 64);
+  var ringMat = new THREE.MeshBasicMaterial({color: COL.accent, transparent:true, opacity:0.55, side:THREE.DoubleSide});
+  var ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = -Math.PI/2;
+  ring.position.y = 0.015;
+  scene.add(ring);
+
+  // pick / place pad markers
+  function makePad(x,z,color){
+    var g = new THREE.RingGeometry(0.42, 0.5, 32);
+    var m = new THREE.MeshBasicMaterial({color:color, transparent:true, opacity:0.5, side:THREE.DoubleSide});
+    var mesh = new THREE.Mesh(g,m);
+    mesh.rotation.x = -Math.PI/2;
+    mesh.position.set(x, 0.02, z);
+    scene.add(mesh);
+  }
+  var pickPos = new THREE.Vector3(-2.6, 0, 2.2);
+  var placePos = new THREE.Vector3(2.6, 0, 2.2);
+  makePad(pickPos.x, pickPos.z, 0x4fd1c5);
+  makePad(placePos.x, placePos.z, 0xffb020);
+
+  // ---------- AGV return cart ----------
+  var agvParkPos = new THREE.Vector3(0, 0, 3.7);
+  makePad(agvParkPos.x, agvParkPos.z, 0x7c8a8f);
+
+  var agvBodyMat = new THREE.MeshStandardMaterial({color: 0x232e32, roughness:0.5, metalness:0.55});
+  var agvWheelMat = new THREE.MeshStandardMaterial({color: 0x0e1517, roughness:0.6, metalness:0.3});
+
+  var agvGroup = new THREE.Group();
+  agvGroup.position.copy(agvParkPos);
+  scene.add(agvGroup);
+
+  var agvBody = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.14, 0.4), agvBodyMat);
+  agvBody.position.y = 0.12;
+  shadowize(agvBody);
+  agvGroup.add(agvBody);
+
+  var agvTopPlate = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.03, 0.34), matAccent);
+  agvTopPlate.position.y = 0.135 + 0.015;
+  agvGroup.add(agvTopPlate);
+
+  var agvBeacon = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.1,10), matAccent);
+  agvBeacon.position.set(0, 0.135+0.03+0.05, -0.12);
+  agvGroup.add(agvBeacon);
+
+  var agvWheelGeo = new THREE.CylinderGeometry(0.07,0.07,0.05,14);
+  var agvWheels = [];
+  [[-0.19,0.07,0.15],[0.19,0.07,0.15],[-0.19,0.07,-0.15],[0.19,0.07,-0.15]].forEach(function(p){
+    var w = new THREE.Mesh(agvWheelGeo, agvWheelMat);
+    w.rotation.z = Math.PI/2;
+    w.position.set(p[0], p[1], p[2]);
+    shadowize(w);
+    agvGroup.add(w);
+    agvWheels.push(w);
+  });
+
+  // AGV state machine: ferries the crate from the drop-off pad back to the pick-up pad
+  var AGV_DUR = {TO_PICKUP:0.8, LOADING:0.3, TO_DROPOFF:1.3, UNLOADING:0.3, TO_DOCK:0.8};
+  var AGV_LABEL = {DOCK:'DOCK', TO_PICKUP:'TO PICKUP', LOADING:'LOADING', TO_DROPOFF:'IN TRANSIT', UNLOADING:'UNLOADING', TO_DOCK:'RETURN DOCK'};
+  var agvState = 'DOCK';
+  var agvT = 0;
+  var agvFrom = agvParkPos.clone();
+  var agvTo = agvParkPos.clone();
+  var agvCarrying = false;
+  var agvActive = false;
+  var agvReturnCount = 0;
+  var agvPhaseLabelEl = document.getElementById('agvPhaseLabel');
+  var agvReturnsEl = document.getElementById('agvReturns');
+
+  function startAgvReturn(){
+    if(agvState !== 'DOCK') return;
+    agvState = 'TO_PICKUP';
+    agvT = 0;
+    agvFrom.copy(agvParkPos);
+    agvTo.copy(placePos);
+    agvActive = true;
+  }
+
+  function updateAgv(dt){
+    if(agvState === 'DOCK'){ return; }
+    agvT += dt;
+    var dur = AGV_DUR[agvState];
+    var t = Math.min(1, agvT/dur);
+    var et = ease(t);
+
+    if(agvState === 'TO_PICKUP' || agvState === 'TO_DROPOFF' || agvState === 'TO_DOCK'){
+      agvGroup.position.lerpVectors(agvFrom, agvTo, et);
+      var dx = agvTo.x - agvFrom.x, dz = agvTo.z - agvFrom.z;
+      if(Math.abs(dx) > 0.001 || Math.abs(dz) > 0.001){ agvGroup.rotation.y = Math.atan2(dx, dz); }
+      agvWheels.forEach(function(w){ w.rotation.x += dt*8; });
+      if(agvCarrying){ crate.position.set(agvGroup.position.x, 0.34, agvGroup.position.z); }
+    }
+
+    if(t >= 1){
+      agvT = 0;
+      if(agvState === 'TO_PICKUP'){
+        agvState = 'LOADING';
+      } else if(agvState === 'LOADING'){
+        agvCarrying = true;
+        agvState = 'TO_DROPOFF';
+        agvFrom.copy(placePos);
+        agvTo.copy(pickPos);
+      } else if(agvState === 'TO_DROPOFF'){
+        agvState = 'UNLOADING';
+      } else if(agvState === 'UNLOADING'){
+        agvCarrying = false;
+        crate.position.set(pickPos.x, 0.17, pickPos.z);
+        agvReturnCount++;
+        agvReturnsEl.textContent = agvReturnCount;
+        agvState = 'TO_DOCK';
+        agvFrom.copy(pickPos);
+        agvTo.copy(agvParkPos);
+      } else if(agvState === 'TO_DOCK'){
+        agvState = 'DOCK';
+        agvActive = false;
+      }
+    }
+    agvPhaseLabelEl.textContent = AGV_LABEL[agvState];
+  }
+
+  // ---------- Materials ----------
+  var matBody = new THREE.MeshStandardMaterial({color: COL.body, roughness:0.45, metalness:0.65});
+  var matDark = new THREE.MeshStandardMaterial({color: COL.bodyDark, roughness:0.5, metalness:0.6});
+  var matJoint = new THREE.MeshStandardMaterial({color: COL.joint, roughness:0.35, metalness:0.8});
+  var matAccent = new THREE.MeshStandardMaterial({color: COL.accent, roughness:0.3, metalness:0.4, emissive:0x552d00, emissiveIntensity:0.3});
+  var matGrip = new THREE.MeshStandardMaterial({color: COL.grip, roughness:0.3, metalness:0.5});
+  var matCrate = new THREE.MeshStandardMaterial({color: COL.crate, roughness:0.6, metalness:0.1});
+
+  function shadowize(m){ m.castShadow = true; m.receiveShadow = true; return m; }
+
+  // ---------- Arm dimensions ----------
+  var PED_H = 0.55, PED_R = 0.62;
+  var UPPER_LEN = 1.9;
+  var FORE_LEN = 1.55;
+  var WRIST_LEN = 0.42;
+  var GRIP_LEN = 0.34;
+
+  // ---------- Base ----------
+  var baseGroup = new THREE.Group();
+  scene.add(baseGroup);
+
+  var pedestal = new THREE.Mesh(new THREE.CylinderGeometry(PED_R, PED_R*1.12, PED_H, 24), matBody);
+  pedestal.position.y = PED_H/2;
+  shadowize(pedestal);
+  baseGroup.add(pedestal);
+
+  var pedRing = new THREE.Mesh(new THREE.CylinderGeometry(PED_R+0.03, PED_R+0.03, 0.06, 24), matAccent);
+  pedRing.position.y = PED_H - 0.03;
+  baseGroup.add(pedRing);
+
+  // rotating yaw turret
+  var turret = new THREE.Group();
+  turret.position.y = PED_H;
+  baseGroup.add(turret);
+
+  var turretBody = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.5, 0.4, 20), matDark);
+  turretBody.position.y = 0.2;
+  shadowize(turretBody);
+  turret.add(turretBody);
+
+  // bolt details
+  for(var i=0;i<8;i++){
+    var a = (i/8)*Math.PI*2;
+    var bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.42,8), matJoint);
+    bolt.position.set(Math.cos(a)*0.5, 0.2, Math.sin(a)*0.5);
+    turret.add(bolt);
+  }
+
+  // ---------- Shoulder ----------
+  var shoulderPivot = new THREE.Group();
+  shoulderPivot.position.set(0, 0.4, 0);
+  turret.add(shoulderPivot);
+
+  var shoulderJoint = new THREE.Mesh(new THREE.SphereGeometry(0.28, 20, 16), matJoint);
+  shadowize(shoulderJoint);
+  shoulderPivot.add(shoulderJoint);
+
+  var upperArm = new THREE.Mesh(new THREE.BoxGeometry(0.34, UPPER_LEN, 0.3), matBody);
+  upperArm.position.y = UPPER_LEN/2;
+  shadowize(upperArm);
+  shoulderPivot.add(upperArm);
+
+  var upperStripe = new THREE.Mesh(new THREE.BoxGeometry(0.06, UPPER_LEN*0.7, 0.32), matAccent);
+  upperStripe.position.set(0, UPPER_LEN/2, 0);
+  shoulderPivot.add(upperStripe);
+
+  // ---------- Elbow ----------
+  var elbowPivot = new THREE.Group();
+  elbowPivot.position.set(0, UPPER_LEN, 0);
+  shoulderPivot.add(elbowPivot);
+
+  var elbowJoint = new THREE.Mesh(new THREE.SphereGeometry(0.22, 18, 14), matJoint);
+  shadowize(elbowJoint);
+  elbowPivot.add(elbowJoint);
+
+  var foreArm = new THREE.Mesh(new THREE.BoxGeometry(0.26, FORE_LEN, 0.22), matBody);
+  foreArm.position.y = FORE_LEN/2;
+  shadowize(foreArm);
+  elbowPivot.add(foreArm);
+
+  var foreStripe = new THREE.Mesh(new THREE.BoxGeometry(0.05, FORE_LEN*0.7, 0.24), matAccent);
+  foreStripe.position.set(0, FORE_LEN/2, 0);
+  elbowPivot.add(foreStripe);
+
+  // ---------- Wrist ----------
+  var wristPivot = new THREE.Group();
+  wristPivot.position.set(0, FORE_LEN, 0);
+  elbowPivot.add(wristPivot);
+
+  var wristJoint = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.22, 16), matJoint);
+  wristJoint.rotation.z = Math.PI/2;
+  shadowize(wristJoint);
+  wristPivot.add(wristJoint);
+
+  var wristLink = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.13, WRIST_LEN, 14), matDark);
+  wristLink.position.y = WRIST_LEN/2;
+  shadowize(wristLink);
+  wristPivot.add(wristLink);
+
+  // ---------- Gripper ----------
+  var gripperBase = new THREE.Group();
+  gripperBase.position.set(0, WRIST_LEN, 0);
+  wristPivot.add(gripperBase);
+
+  var gripPalm = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.12, 0.24), matJoint);
+  gripPalm.position.y = 0.06;
+  shadowize(gripPalm);
+  gripperBase.add(gripPalm);
+
+  var fingerL = new THREE.Mesh(new THREE.BoxGeometry(0.06, GRIP_LEN, 0.2), matGrip);
+  var fingerR = new THREE.Mesh(new THREE.BoxGeometry(0.06, GRIP_LEN, 0.2), matGrip);
+  fingerL.position.set(-0.1, 0.12 + GRIP_LEN/2, 0);
+  fingerR.position.set(0.1, 0.12 + GRIP_LEN/2, 0);
+  shadowize(fingerL); shadowize(fingerR);
+  gripperBase.add(fingerL, fingerR);
+
+  // finger tip accents
+  var tipL = new THREE.Mesh(new THREE.BoxGeometry(0.07,0.04,0.22), matAccent);
+  var tipR = tipL.clone();
+  tipL.position.set(-0.1, 0.12+GRIP_LEN-0.02, 0);
+  tipR.position.set(0.1, 0.12+GRIP_LEN-0.02, 0);
+  gripperBase.add(tipL, tipR);
+
+  // payload crate
+  var crate = new THREE.Mesh(new THREE.BoxGeometry(0.34,0.34,0.34), matCrate);
+  shadowize(crate);
+  crate.position.copy(pickPos).setY(0.17);
+  scene.add(crate);
+
+  // cable detail along the arm (simple tube-ish tie using thin boxes)
+  var tie1 = new THREE.Mesh(new THREE.BoxGeometry(0.05,0.05,UPPER_LEN*0.55), matJoint);
+  tie1.rotation.x = Math.PI/2;
+  tie1.position.set(0.14, UPPER_LEN*0.45, 0.1);
+  shoulderPivot.add(tie1);
+
+  // ---------- Axis tags (HUD labels projected) ----------
+  var tagShoulder = document.createElement('div');
+  var tagElbow = document.createElement('div');
+  var tagGrip = document.createElement('div');
+  [tagShoulder, tagElbow, tagGrip].forEach(function(t, i){
+    t.className = 'axis-tag';
+    t.textContent = ['SHLDR','ELBOW','EE'][i];
+    document.body.appendChild(t);
+  });
+
+  function project(obj, tag){
+    var v = new THREE.Vector3();
+    obj.getWorldPosition(v);
+    v.project(camera);
+    var x = (v.x*0.5+0.5) * window.innerWidth;
+    var y = (-v.y*0.5+0.5) * window.innerHeight;
+    tag.style.left = x + 'px';
+    tag.style.top = (y-26) + 'px';
+    tag.style.display = v.z > 1 ? 'none' : 'block';
+  }
+
+  // ---------- Animation state machine ----------
+  var deg = THREE.MathUtils.degToRad;
+  var KEY = {
+    home:   {base:0,   shoulder:-18, elbow:38, wrist:0,   grip:1},
+    pick:   {base:-42, shoulder:-58, elbow:96, wrist:12,  grip:1},
+    grasp:  {base:-42, shoulder:-58, elbow:96, wrist:12,  grip:0},
+    lift:   {base:-42, shoulder:-22, elbow:46, wrist:0,   grip:0},
+    carry:  {base:42,  shoulder:-22, elbow:46, wrist:0,   grip:0},
+    lower:  {base:42,  shoulder:-58, elbow:96, wrist:-12, grip:0},
+    release:{base:42,  shoulder:-58, elbow:96, wrist:-12, grip:1}
+  };
+
+  var phases = [
+    {name:'REACH',   from:'home',    to:'pick',    dur:1.3},
+    {name:'GRASP',   from:'pick',    to:'grasp',   dur:0.5},
+    {name:'LIFT',    from:'grasp',   to:'lift',    dur:0.7},
+    {name:'TRANSPORT',from:'lift',   to:'carry',   dur:1.5},
+    {name:'LOWER',   from:'carry',   to:'lower',   dur:0.7},
+    {name:'RELEASE', from:'lower',   to:'release', dur:0.5},
+    {name:'RETURN',  from:'release', to:'home',    dur:1.4},
+    {name:'IDLE',    from:'home',    to:'home',    dur:0.6}
+  ];
+
+  var phaseIdx = 0, phaseT = 0;
+  var cycleCount = 0;
+  var playing = true;
+  var startTime = performance.now();
+
+  function ease(t){ return t*t*(3-2*t); }
+  function lerpKey(a,b,t){
+    var out = {};
+    for(var k in a){ out[k] = THREE.MathUtils.lerp(a[k], b[k], t); }
+    return out;
+  }
+
+  var cur = Object.assign({}, KEY.home);
+
+  var elBase = document.getElementById('valBase');
+  var elShoulder = document.getElementById('valShoulder');
+  var elElbow = document.getElementById('valElbow');
+  var elWrist = document.getElementById('valWrist');
+  var elGrip = document.getElementById('valGrip');
+  var fillBase = document.getElementById('fillBase');
+  var fillShoulder = document.getElementById('fillShoulder');
+  var fillElbow = document.getElementById('fillElbow');
+  var fillWrist = document.getElementById('fillWrist');
+  var fillGrip = document.getElementById('fillGrip');
+  var phaseLabel = document.getElementById('phaseLabel');
+  var cycleCountEl = document.getElementById('cycleCount');
+  var uptimeEl = document.getElementById('uptimeVal');
+
+  function pct(v, min, max){ return Math.max(0,Math.min(100, ((v-min)/(max-min))*100)); }
+
+  function updateHUD(){
+    elBase.textContent = Math.round(cur.base) + '\u00B0';
+    elShoulder.textContent = Math.round(cur.shoulder) + '\u00B0';
+    elElbow.textContent = Math.round(cur.elbow) + '\u00B0';
+    elWrist.textContent = Math.round(cur.wrist) + '\u00B0';
+    elGrip.textContent = Math.round(cur.grip*100) + '%';
+    fillBase.style.width = pct(cur.base,-60,60) + '%';
+    fillShoulder.style.width = pct(cur.shoulder,-70,10) + '%';
+    fillElbow.style.width = pct(cur.elbow,20,110) + '%';
+    fillWrist.style.width = pct(cur.wrist,-20,20) + '%';
+    fillGrip.style.width = (cur.grip*100) + '%';
+    phaseLabel.textContent = phases[phaseIdx].name;
+    cycleCountEl.textContent = cycleCount;
+  }
+
+  function applyPose(p){
+    turret.rotation.y = deg(p.base);
+    shoulderPivot.rotation.z = deg(p.shoulder);
+    elbowPivot.rotation.z = deg(p.elbow - p.shoulder) * 0 + deg(-(p.elbow));
+    wristPivot.rotation.z = deg(p.wrist);
+    var open = p.grip;
+    fingerL.position.x = -0.05 - open*0.14;
+    fingerR.position.x = 0.05 + open*0.14;
+    tipL.position.x = fingerL.position.x;
+    tipR.position.x = fingerR.position.x;
+  }
+
+  var holdingCrate = false;
+
+  var clock = new THREE.Clock();
+
+  function tick(){
+    requestAnimationFrame(tick);
+    var dt = clock.getDelta();
+    controls.update();
+
+    if(playing){
+      phaseT += dt;
+      var ph = phases[phaseIdx];
+      var t = Math.min(1, phaseT / ph.dur);
+      cur = lerpKey(KEY[ph.from], KEY[ph.to], ease(t));
+      applyPose(cur);
+
+      // crate follow logic
+      var carryingPhases = ['LIFT','TRANSPORT','LOWER'];
+      if(carryingPhases.indexOf(ph.name) !== -1){
+        var wp = new THREE.Vector3();
+        gripperBase.getWorldPosition(wp);
+        crate.position.set(wp.x, wp.y - 0.22, wp.z);
+        holdingCrate = true;
+      } else if(ph.name === 'GRASP'){
+        // stay at pick pad (unless the AGV is still mid-delivery with it)
+        if(!agvActive){
+          crate.position.set(pickPos.x, 0.17, pickPos.z);
+        }
+      } else if(ph.name === 'RELEASE'){
+        if(holdingCrate){
+          crate.position.set(placePos.x, 0.17, placePos.z);
+          holdingCrate = false;
+          startAgvReturn();
+        }
+      }
+
+      updateAgv(dt);
+
+      if(t >= 1){
+        phaseT = 0;
+        phaseIdx++;
+        if(phaseIdx >= phases.length){
+          phaseIdx = 0;
+          cycleCount++;
+          holdingCrate = false;
+        }
+      }
+      updateHUD();
+    }
+
+    project(shoulderPivot, tagShoulder);
+    project(wristPivot, tagElbow);
+    project(gripperBase, tagGrip);
+
+    var secs = Math.floor((performance.now()-startTime)/1000);
+    var mm = String(Math.floor(secs/60)).padStart(2,'0');
+    var ss = String(secs%60).padStart(2,'0');
+    uptimeEl.textContent = mm+':'+ss;
+
+    renderer.render(scene, camera);
+  }
+  applyPose(cur);
+  tick();
+
+  // ---------- Controls wiring ----------
+  var btnPlay = document.getElementById('btnPlay');
+  var playLabel = document.getElementById('playLabel');
+  var statusDot = document.getElementById('statusDot');
+  var statusValue = document.getElementById('statusValue');
+  btnPlay.addEventListener('click', function(){
+    playing = !playing;
+    playLabel.textContent = playing ? 'Pause' : 'Resume';
+    statusDot.classList.toggle('paused', !playing);
+    statusValue.textContent = playing ? 'Active' : 'Paused';
+  });
+
+  document.getElementById('btnReset').addEventListener('click', function(){
+    camera.position.copy(camHome);
+    controls.target.set(0,1.5,0);
+    controls.update();
+  });
+
+  window.addEventListener('resize', function(){
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+})();
+</script>
+</body>
+</html>
