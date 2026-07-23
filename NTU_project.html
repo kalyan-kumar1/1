@@ -295,6 +295,19 @@
       <div class="l">Uptime</div>
     </div>
   </div>
+
+  <div class="panel" style="min-width:200px;">
+    <div class="panel-title">
+      <span>AGV Cart</span>
+      <span class="phase" id="agvPhaseLabel">DOCK</span>
+    </div>
+    <div class="stat-panel" style="flex-direction:row; gap:18px;">
+      <div class="stat" style="text-align:left;">
+        <div class="n" id="agvReturns" style="font-size:20px;">0</div>
+        <div class="l">Returns</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="controls">
@@ -401,6 +414,105 @@
   var placePos = new THREE.Vector3(2.6, 0, 2.2);
   makePad(pickPos.x, pickPos.z, 0x4fd1c5);
   makePad(placePos.x, placePos.z, 0xffb020);
+
+  // ---------- AGV return cart ----------
+  var agvParkPos = new THREE.Vector3(0, 0, 3.7);
+  makePad(agvParkPos.x, agvParkPos.z, 0x7c8a8f);
+
+  var agvBodyMat = new THREE.MeshStandardMaterial({color: 0x232e32, roughness:0.5, metalness:0.55});
+  var agvWheelMat = new THREE.MeshStandardMaterial({color: 0x0e1517, roughness:0.6, metalness:0.3});
+
+  var agvGroup = new THREE.Group();
+  agvGroup.position.copy(agvParkPos);
+  scene.add(agvGroup);
+
+  var agvBody = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.14, 0.4), agvBodyMat);
+  agvBody.position.y = 0.12;
+  shadowize(agvBody);
+  agvGroup.add(agvBody);
+
+  var agvTopPlate = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.03, 0.34), matAccent);
+  agvTopPlate.position.y = 0.135 + 0.015;
+  agvGroup.add(agvTopPlate);
+
+  var agvBeacon = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.1,10), matAccent);
+  agvBeacon.position.set(0, 0.135+0.03+0.05, -0.12);
+  agvGroup.add(agvBeacon);
+
+  var agvWheelGeo = new THREE.CylinderGeometry(0.07,0.07,0.05,14);
+  var agvWheels = [];
+  [[-0.19,0.07,0.15],[0.19,0.07,0.15],[-0.19,0.07,-0.15],[0.19,0.07,-0.15]].forEach(function(p){
+    var w = new THREE.Mesh(agvWheelGeo, agvWheelMat);
+    w.rotation.z = Math.PI/2;
+    w.position.set(p[0], p[1], p[2]);
+    shadowize(w);
+    agvGroup.add(w);
+    agvWheels.push(w);
+  });
+
+  // AGV state machine: ferries the crate from the drop-off pad back to the pick-up pad
+  var AGV_DUR = {TO_PICKUP:0.8, LOADING:0.3, TO_DROPOFF:1.3, UNLOADING:0.3, TO_DOCK:0.8};
+  var AGV_LABEL = {DOCK:'DOCK', TO_PICKUP:'TO PICKUP', LOADING:'LOADING', TO_DROPOFF:'IN TRANSIT', UNLOADING:'UNLOADING', TO_DOCK:'RETURN DOCK'};
+  var agvState = 'DOCK';
+  var agvT = 0;
+  var agvFrom = agvParkPos.clone();
+  var agvTo = agvParkPos.clone();
+  var agvCarrying = false;
+  var agvActive = false;
+  var agvReturnCount = 0;
+  var agvPhaseLabelEl = document.getElementById('agvPhaseLabel');
+  var agvReturnsEl = document.getElementById('agvReturns');
+
+  function startAgvReturn(){
+    if(agvState !== 'DOCK') return;
+    agvState = 'TO_PICKUP';
+    agvT = 0;
+    agvFrom.copy(agvParkPos);
+    agvTo.copy(placePos);
+    agvActive = true;
+  }
+
+  function updateAgv(dt){
+    if(agvState === 'DOCK'){ return; }
+    agvT += dt;
+    var dur = AGV_DUR[agvState];
+    var t = Math.min(1, agvT/dur);
+    var et = ease(t);
+
+    if(agvState === 'TO_PICKUP' || agvState === 'TO_DROPOFF' || agvState === 'TO_DOCK'){
+      agvGroup.position.lerpVectors(agvFrom, agvTo, et);
+      var dx = agvTo.x - agvFrom.x, dz = agvTo.z - agvFrom.z;
+      if(Math.abs(dx) > 0.001 || Math.abs(dz) > 0.001){ agvGroup.rotation.y = Math.atan2(dx, dz); }
+      agvWheels.forEach(function(w){ w.rotation.x += dt*8; });
+      if(agvCarrying){ crate.position.set(agvGroup.position.x, 0.34, agvGroup.position.z); }
+    }
+
+    if(t >= 1){
+      agvT = 0;
+      if(agvState === 'TO_PICKUP'){
+        agvState = 'LOADING';
+      } else if(agvState === 'LOADING'){
+        agvCarrying = true;
+        agvState = 'TO_DROPOFF';
+        agvFrom.copy(placePos);
+        agvTo.copy(pickPos);
+      } else if(agvState === 'TO_DROPOFF'){
+        agvState = 'UNLOADING';
+      } else if(agvState === 'UNLOADING'){
+        agvCarrying = false;
+        crate.position.set(pickPos.x, 0.17, pickPos.z);
+        agvReturnCount++;
+        agvReturnsEl.textContent = agvReturnCount;
+        agvState = 'TO_DOCK';
+        agvFrom.copy(pickPos);
+        agvTo.copy(agvParkPos);
+      } else if(agvState === 'TO_DOCK'){
+        agvState = 'DOCK';
+        agvActive = false;
+      }
+    }
+    agvPhaseLabelEl.textContent = AGV_LABEL[agvState];
+  }
 
   // ---------- Materials ----------
   var matBody = new THREE.MeshStandardMaterial({color: COL.body, roughness:0.45, metalness:0.65});
@@ -662,13 +774,19 @@
         crate.position.set(wp.x, wp.y - 0.22, wp.z);
         holdingCrate = true;
       } else if(ph.name === 'GRASP'){
-        // stay at pick pad
-        crate.position.set(pickPos.x, 0.17, pickPos.z);
-      } else if(ph.name === 'RELEASE' || ph.name === 'RETURN' || ph.name === 'IDLE'){
+        // stay at pick pad (unless the AGV is still mid-delivery with it)
+        if(!agvActive){
+          crate.position.set(pickPos.x, 0.17, pickPos.z);
+        }
+      } else if(ph.name === 'RELEASE'){
         if(holdingCrate){
           crate.position.set(placePos.x, 0.17, placePos.z);
+          holdingCrate = false;
+          startAgvReturn();
         }
       }
+
+      updateAgv(dt);
 
       if(t >= 1){
         phaseT = 0;
