@@ -252,64 +252,86 @@
   </div>
 </div>
 
-<div class="dock">
-  <div class="panel" style="min-width:280px;">
-    <div class="panel-title">
-      <span>Joint Telemetry</span>
-      <span class="phase" id="phaseLabel">REACH</span>
-    </div>
-    <div class="joint-row">
-      <span class="joint-name">BASE</span>
-      <div class="joint-track"><div class="joint-fill" id="fillBase"></div></div>
-      <span class="joint-val" id="valBase">0&deg;</span>
-    </div>
-    <div class="joint-row">
-      <span class="joint-name">SHLDR</span>
-      <div class="joint-track"><div class="joint-fill" id="fillShoulder"></div></div>
-      <span class="joint-val" id="valShoulder">0&deg;</span>
-    </div>
-    <div class="joint-row">
-      <span class="joint-name">ELBOW</span>
-      <div class="joint-track"><div class="joint-fill" id="fillElbow"></div></div>
-      <span class="joint-val" id="valElbow">0&deg;</span>
-    </div>
-    <div class="joint-row">
-      <span class="joint-name">WRIST</span>
-      <div class="joint-track"><div class="joint-fill" id="fillWrist"></div></div>
-      <span class="joint-val" id="valWrist">0&deg;</span>
-    </div>
-    <div class="joint-row">
-      <span class="joint-name">GRIP</span>
-      <div class="joint-track"><div class="joint-fill" id="fillGrip"></div></div>
-      <span class="joint-val" id="valGrip">0%</span>
+<div class="hud">
+  <!-- Top Center: Sync / Conveyor Panel -->
+  <div class="top-row">
+    <div class="panel sync-panel">
+      <div class="panel-title">
+        <span>CONVEYOR &amp; SYNC CONTROL</span>
+        <span class="phase" id="syncPhase">SYNCED</span>
+      </div>
+      <div class="stat-panel" style="flex-direction: row; gap: 24px; justify-content: center;">
+        <div class="stat">
+          <div class="n" id="conveyorSpeed">1.2 m/s</div>
+          <div class="l">Conveyor Speed</div>
+        </div>
+        <div class="stat">
+          <div class="n" id="syncStatus">OK</div>
+          <div class="l">Sync Delta</div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <div class="panel stat-panel">
-    <div class="stat">
-      <div class="n" id="cycleCount">0</div>
-      <div class="l">Cycles</div>
+  <!-- Bottom Row: Mirrored Arm Panels -->
+  <div class="bottom-row">
+    <!-- Arm A (Bottom Left) -->
+    <div class="panel arm-panel arm-a">
+      <div class="panel-title">
+        <span>ARM A TELEMETRY</span>
+        <span class="phase" id="phaseLabelA">REACH</span>
+      </div>
+      <div class="joint-row">
+        <span class="joint-name">BASE</span>
+        <div class="joint-track"><div class="joint-fill" id="fillBaseA"></div></div>
+        <span class="joint-val" id="valBaseA">0°</span>
+      </div>
+      <div class="joint-row">
+        <span class="joint-name">SHLDR</span>
+        <div class="joint-track"><div class="joint-fill" id="fillShoulderA"></div></div>
+        <span class="joint-val" id="valShoulderA">0°</span>
+      </div>
+      <div class="joint-row">
+        <span class="joint-name">ELBOW</span>
+        <div class="joint-track"><div class="joint-fill" id="fillElbowA"></div></div>
+        <span class="joint-val" id="valElbowA">0°</span>
+      </div>
+      <div class="joint-row">
+        <span class="joint-name">GRIP</span>
+        <div class="joint-track"><div class="joint-fill" id="fillGripA"></div></div>
+        <span class="joint-val" id="valGripA">0%</span>
+      </div>
     </div>
-    <div class="stat">
-      <div class="n" id="uptimeVal">00:00</div>
-      <div class="l">Uptime</div>
-    </div>
-  </div>
 
-  <div class="panel" style="min-width:200px;">
-    <div class="panel-title">
-      <span>AGV Cart</span>
-      <span class="phase" id="agvPhaseLabel">DOCK</span>
-    </div>
-    <div class="stat-panel" style="flex-direction:row; gap:18px;">
-      <div class="stat" style="text-align:left;">
-        <div class="n" id="agvReturns" style="font-size:20px;">0</div>
-        <div class="l">Returns</div>
+    <!-- Arm B / Mirrored Arm (Bottom Right) -->
+    <div class="panel arm-panel arm-b mirrored">
+      <div class="panel-title">
+        <span class="phase" id="phaseLabelB">REACH</span>
+        <span>ARM B TELEMETRY</span>
+      </div>
+      <div class="joint-row">
+        <span class="joint-val" id="valBaseB">0°</span>
+        <div class="joint-track"><div class="joint-fill" id="fillBaseB"></div></div>
+        <span class="joint-name">BASE</span>
+      </div>
+      <div class="joint-row">
+        <span class="joint-val" id="valShoulderB">0°</span>
+        <div class="joint-track"><div class="joint-fill" id="fillShoulderB"></div></div>
+        <span class="joint-name">SHLDR</span>
+      </div>
+      <div class="joint-row">
+        <span class="joint-val" id="valElbowB">0°</span>
+        <div class="joint-track"><div class="joint-fill" id="fillElbowB"></div></div>
+        <span class="joint-name">ELBOW</span>
+      </div>
+      <div class="joint-row">
+        <span class="joint-val" id="valGripB">0%</span>
+        <div class="joint-track"><div class="joint-fill" id="fillGripB"></div></div>
+        <span class="joint-name">GRIP</span>
       </div>
     </div>
   </div>
 </div>
-
 <div class="controls">
   <button class="ctl-btn" id="btnPlay">
     <span class="ic" id="playIcon">&#10074;&#10074;</span><span id="playLabel">Pause</span>
