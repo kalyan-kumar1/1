@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NVIDIA DRIVE — Platooning Simulation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0c0a;
+    --bg-alt:#0e110e;
+    --panel:#12150f;
+    --panel-2:#171b14;
+    --border:#242a20;
+    --border-soft:#1b201a;
+    --green:#76b900;
+    --green-dim:#4c7a00;
+    --green-glow:rgba(118,185,0,.35);
+    --amber:#e0a83f;
+    --danger:#ff5c5c;
+    --text:#f1f3ec;
+    --text-dim:#aeb5a6;
+    --text-faint:#6d756a;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:40px 20px;
+  }
+  ::selection{background:var(--green);color:#0a0c0a;}
+
+  .bg-fx{
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:
+      linear-gradient(var(--border-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border-soft) 1px, transparent 1px);
+    background-size:64px 64px;
+    opacity:.35;
+    mask-image:radial-gradient(ellipse 80% 60% at 50% 0%, black 20%, transparent 75%);
+  }
+
+  .stage{
+    position:relative;z-index:1;
+    width:100%;
+    max-width:1000px;
+  }
+
+  .stage-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:20px;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{
+    width:20px;height:20px;
+    background:var(--green);
+    clip-path:polygon(0 0,100% 0,100% 60%,60% 100%,0 100%);
+  }
+  .brand-text{font-weight:800;letter-spacing:.04em;font-size:14px;}
+  .brand-text span{color:var(--green);}
+  .brand-tag{
+    font-family:var(--mono);font-size:10.5px;color:var(--text-faint);
+    letter-spacing:.14em;text-transform:uppercase;
+    padding-left:10px;margin-left:10px;border-left:1px solid var(--border);
+  }
+  .eyebrow{
+    display:inline-flex;align-items:center;gap:8px;
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--green);
+    border:1px solid var(--border);
+    background:var(--panel);
+    padding:6px 12px;border-radius:99px;
+  }
+  .eyebrow .dot{
+    width:6px;height:6px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 8px 2px var(--green-glow);
+    animation:pulse-dot 1.8s ease-in-out infinite;
+  }
+  @keyframes pulse-dot{0%,100%{opacity:1;}50%{opacity:.35;}}
+
+  h1{
+    font-size:clamp(24px, 3.4vw, 32px);
+    font-weight:800;
+    letter-spacing:-.015em;
+    margin-bottom:8px;
+  }
+  .stage-sub{
+    color:var(--text-dim);
+    font-size:14px;
+    line-height:1.6;
+    max-width:680px;
+    margin-bottom:28px;
+  }
+
+  /* ---------- Demo shell ---------- */
+  .demo-shell{
+    border:1px solid var(--border);
+    border-radius:14px;
+    background:linear-gradient(180deg, var(--panel), var(--bg-alt) 70%);
+    overflow:hidden;
+    box-shadow:0 40px 80px -40px rgba(0,0,0,.6);
+  }
+  .demo-viewport{
+    position:relative;
+    height:300px;
+    border-bottom:1px solid var(--border);
+    background:
+      radial-gradient(ellipse 70% 100% at 50% -10%, rgba(118,185,0,.10), transparent 60%),
+      var(--bg-alt);
+    overflow:hidden;
+  }
+  .demo-road{
+    position:absolute;left:0;right:0;bottom:0;height:120px;
+    background:#0c0f0a;
+    border-top:1px solid #2a3122;
+    z-index:2;
+  }
+  .demo-lane{
+    position:absolute;top:50%;left:0;right:0;height:2px;transform:translateY(-50%);
+    background-image:repeating-linear-gradient(90deg, #4a5240 0 30px, transparent 30px 62px);
+    background-repeat:repeat-x;
+    opacity:.55;
+  }
+  .demo-lane.top{transform:translateY(-140%);}
+  .demo-lane.bot{transform:translateY(40%);}
+
+  /* Junctions (scrolling world layer, sits behind vehicles) */
+  .junction-layer{position:absolute;inset:0;z-index:1;}
+  .junction{position:absolute;top:14px;bottom:0;width:52px;}
+  .junction .strip{
+    position:absolute;inset:0;top:0;bottom:0;
+    background:linear-gradient(180deg, rgba(118,185,0,.05), rgba(118,185,0,.02) 60%, rgba(118,185,0,.05));
+    border-left:1px dashed var(--border);
+    border-right:1px dashed var(--border);
+  }
+  .junction .pole{
+    position:absolute;top:0;bottom:120px;left:50%;width:2px;
+    background:var(--border-soft);transform:translateX(-50%);
+  }
+  .junction .signal-head{
+    position:absolute;top:-4px;left:50%;transform:translateX(-50%);
+    display:flex;flex-direction:column;gap:3px;
+    background:#0d0f0c;border:1px solid var(--border);border-radius:5px;
+    padding:4px 5px;
+  }
+  .lamp{width:7px;height:7px;border-radius:50%;background:#222;opacity:.3;transition:opacity .2s, box-shadow .2s;}
+  .lamp.red.active{background:var(--danger);opacity:1;box-shadow:0 0 8px 2px rgba(255,92,92,.55);}
+  .lamp.yellow.active{background:var(--amber);opacity:1;box-shadow:0 0 8px 2px rgba(224,168,63,.55);}
+  .lamp.green.active{background:var(--green);opacity:1;box-shadow:0 0 8px 2px var(--green-glow);}
+  .junction .crosswalk{
+    position:absolute;left:8px;right:8px;bottom:8px;height:104px;
+    background-image:repeating-linear-gradient(90deg, rgba(241,243,236,.28) 0 5px, transparent 5px 15px);
+  }
+  .junction .junction-label{
+    position:absolute;bottom:126px;left:50%;transform:translateX(-50%);
+    font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--text-faint);
+    white-space:nowrap;
+  }
+  .cross-car{
+    position:absolute;left:50%;top:14px;width:14px;height:24px;
+    transform:translateX(-50%) translateY(-30px);
+    opacity:0;pointer-events:none;
+  }
+  .cross-car.running{opacity:.95;animation:cross-drive 1s linear infinite;}
+  @keyframes cross-drive{
+    from{ transform:translateX(-50%) translateY(-30px); }
+    to{ transform:translateX(-50%) translateY(230px); }
+  }
+
+  /* Vehicles */
+  .truck-layer{position:absolute;bottom:0;left:0;right:0;height:220px;z-index:3;}
+  .truck-node{position:absolute;bottom:14px;z-index:4;}
+  .truck-node svg{display:block;}
+  .truck-label{
+    position:absolute;top:-24px;left:50%;transform:translateX(-50%);
+    font-family:var(--mono);font-size:9.5px;color:var(--text-faint);
+    white-space:nowrap;letter-spacing:.04em;
+  }
+  .truck-node.lead .truck-label{color:var(--green);}
+
+  .street-car{position:absolute;bottom:82px;z-index:3;opacity:.92;}
+  .street-car svg{display:block;}
+
+  .mesh-beam{
+    position:absolute;height:2px;z-index:4;
+    transform-origin:left center;
+  }
+  .mesh-beam .beam-line{
+    position:absolute;inset:0;
+    background:linear-gradient(90deg, var(--green) 0%, var(--green) 100%);
+    opacity:.28;
+  }
+  .mesh-beam .beam-pulse{
+    position:absolute;top:-1px;left:0;width:26px;height:4px;
+    border-radius:2px;
+    background:var(--green);
+    box-shadow:0 0 10px 2px var(--green-glow);
+    animation:beam-travel 1s linear infinite;
+  }
+  .mesh-beam.off .beam-line{background:repeating-linear-gradient(90deg, var(--danger) 0 6px, transparent 6px 12px);opacity:.5;}
+  .mesh-beam.off .beam-pulse{display:none;}
+  @keyframes beam-travel{from{left:-26px;}to{left:100%;}}
+
+  .demo-controls{
+    display:grid;
+    grid-template-columns:1.1fr 1fr;
+    gap:0;
+  }
+  @media (max-width:860px){
+    .demo-controls{grid-template-columns:1fr;}
+  }
+  .controls-col{padding:32px 36px;border-right:1px solid var(--border);}
+  @media (max-width:860px){.controls-col{border-right:none;border-bottom:1px solid var(--border);}}
+  .readout-col{padding:32px 36px;background:rgba(255,255,255,.012);}
+
+  .ctrl-row{margin-bottom:26px;}
+  .ctrl-row:last-child{margin-bottom:0;}
+  .ctrl-label-row{
+    display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;
+  }
+  .ctrl-label{font-size:12.5px;font-weight:600;color:var(--text-dim);letter-spacing:.03em;text-transform:uppercase;}
+  .ctrl-value{font-family:var(--mono);font-size:13px;color:var(--green);font-weight:600;}
+
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;
+    width:100%;height:4px;border-radius:2px;
+    background:var(--border);
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;
+    width:16px;height:16px;border-radius:50%;
+    background:var(--green);
+    border:3px solid #0a0c0a;
+    box-shadow:0 0 0 1px var(--green-dim), 0 0 10px var(--green-glow);
+    cursor:pointer;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:16px;height:16px;border-radius:50%;
+    background:var(--green);border:3px solid #0a0c0a;cursor:pointer;
+  }
+
+  .toggle-row{
+    display:flex;align-items:center;justify-content:space-between;
+    padding-top:20px;margin-top:22px;border-top:1px solid var(--border);
+  }
+  .toggle-label{font-size:12.5px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.03em;}
+  .switch{
+    position:relative;width:44px;height:24px;border-radius:99px;
+    background:var(--border);cursor:pointer;transition:background .2s;border:1px solid var(--border);
+  }
+  .switch.on{background:var(--green-dim);border-color:var(--green);}
+  .switch .knob{
+    position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;
+    background:var(--text-faint);transition:left .2s, background .2s;
+  }
+  .switch.on .knob{left:22px;background:var(--green);}
+
+  .readout-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:1px;
+    background:var(--border);
+    border:1px solid var(--border);
+    border-radius:8px;overflow:hidden;
+  }
+  .readout-cell{
+    background:var(--panel-2);
+    padding:16px 18px;
+  }
+  .readout-cell .rl{
+    font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--text-faint);margin-bottom:8px;
+  }
+  .readout-cell .rv{
+    font-family:var(--mono);font-size:22px;font-weight:600;color:var(--text);
+    display:flex;align-items:baseline;gap:4px;
+  }
+  .readout-cell .rv .unit{font-size:12px;color:var(--text-faint);font-weight:400;}
+  .readout-cell.accent .rv{color:var(--green);}
+  .readout-cell.warn .rv{color:var(--amber);}
+  .readout-cell.danger .rv{color:var(--danger);}
+
+  .safety-strip{
+    margin-top:18px;padding:14px 16px;border-radius:8px;
+    border:1px solid var(--border);
+    font-family:var(--mono);font-size:11.5px;color:var(--text-dim);
+    display:flex;align-items:center;gap:10px;
+  }
+  .safety-strip .sdot{width:7px;height:7px;border-radius:50%;flex:none;}
+
+  .foot-note{
+    margin-top:20px;
+    text-align:center;
+    font-family:var(--mono);font-size:10.5px;color:var(--text-faint);
+    letter-spacing:.06em;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.001ms !important;animation-iteration-count:1 !important;}
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-fx"></div>
+
+<div class="stage">
+  <div class="stage-head">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div class="brand-text">NVIDIA <span>DRIVE</span></div>
+      <div class="brand-tag">Platoon / Simulation</div>
+    </div>
+    <div class="eyebrow"><span class="dot"></span> LIVE</div>
+  </div>
+
+  <h1>Configure the convoy, watch the mesh respond</h1>
+  <p class="stage-sub">
+    Adjust fleet size, following gap and road speed. Mixed traffic and signalized junctions scroll
+    past in real time — the convoy holds automatically at red lights, and the visualization stays
+    wired to the same telemetry model driving the readouts.
+  </p>
+
+  <div class="demo-shell">
+    <div class="demo-viewport" id="viewport">
+      <div class="demo-lane top" id="laneTop"></div>
+      <div class="demo-lane" id="laneMid"></div>
+      <div class="demo-lane bot" id="laneBot"></div>
+      <div class="junction-layer" id="junctionLayer"></div>
+      <div class="truck-layer" id="truckLayer"></div>
+      <div class="demo-road"></div>
+    </div>
+
+    <div class="demo-controls">
+      <div class="controls-col">
+        <div class="ctrl-row">
+          <div class="ctrl-label-row">
+            <span class="ctrl-label">Fleet size</span>
+            <span class="ctrl-value" id="valTrucks">4 trucks</span>
+          </div>
+          <input type="range" id="ctrlTrucks" min="2" max="6" step="1" value="4">
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-label-row">
+            <span class="ctrl-label">Following gap</span>
+            <span class="ctrl-value" id="valGap">15 m</span>
+          </div>
+          <input type="range" id="ctrlGap" min="8" max="50" step="1" value="15">
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-label-row">
+            <span class="ctrl-label">Road speed</span>
+            <span class="ctrl-value" id="valSpeed">88 km/h</span>
+          </div>
+          <input type="range" id="ctrlSpeed" min="50" max="110" step="1" value="88">
+        </div>
+
+        <div class="toggle-row">
+          <span class="toggle-label">V2V mesh link</span>
+          <div class="switch on" id="ctrlMesh"><div class="knob"></div></div>
+        </div>
+      </div>
+
+      <div class="readout-col">
+        <div class="readout-grid">
+          <div class="readout-cell accent">
+            <div class="rl">Est. fuel saved</div>
+            <div class="rv" id="outFuel">—<span class="unit">%</span></div>
+          </div>
+          <div class="readout-cell">
+            <div class="rl">Mesh latency</div>
+            <div class="rv" id="outLatency">—<span class="unit">ms</span></div>
+          </div>
+          <div class="readout-cell">
+            <div class="rl">Reaction distance</div>
+            <div class="rv" id="outReact">—<span class="unit">m</span></div>
+          </div>
+          <div class="readout-cell" id="cellMargin">
+            <div class="rl">Safety margin</div>
+            <div class="rv" id="outMargin">—<span class="unit">m</span></div>
+          </div>
+        </div>
+
+        <div class="safety-strip" id="signalStrip">
+          <div class="sdot" id="signalDot" style="background:var(--green)"></div>
+          <span id="signalText">Scanning ahead for the next signalized junction…</span>
+        </div>
+
+        <div class="safety-strip" id="safetyStrip">
+          <div class="sdot" id="safetyDot" style="background:var(--green)"></div>
+          <span id="safetyText">Formation nominal — gap holds positive margin under mesh control.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot-note">PLATOONING SIMULATION · REV 3.3 · MIXED TRAFFIC + SIGNALIZED JUNCTIONS · FOR REVIEW</div>
+</div>
+
+<script>
+(function(){
+
+  // ================= Vehicle icon factories =================
+  function truckSVG(color, w){
+    w = w || 64;
+    var h = Math.round(w*0.62);
+    return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 64 40" fill="none" xmlns="http://www.w3.org/2000/svg">'+
+      '<rect x="2" y="14" width="34" height="18" rx="2" fill="#171b14" stroke="'+color+'" stroke-width="1.4"/>'+
+      '<rect x="38" y="6" width="16" height="26" rx="2" fill="'+color+'" fill-opacity="0.16" stroke="'+color+'" stroke-width="1.4"/>'+
+      '<rect x="41" y="9" width="9" height="8" rx="1" fill="'+color+'" fill-opacity="0.5"/>'+
+      '<circle cx="12" cy="33" r="4" fill="#050604" stroke="'+color+'" stroke-width="1.2"/>'+
+      '<circle cx="27" cy="33" r="4" fill="#050604" stroke="'+color+'" stroke-width="1.2"/>'+
+      '<circle cx="47" cy="33" r="4" fill="#050604" stroke="'+color+'" stroke-width="1.2"/>'+
+      '</svg>';
+  }
+
+  function carSVG(color, w){
+    w = w || 34;
+    var h = Math.round(w*0.5);
+    return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 34 17" fill="none" xmlns="http://www.w3.org/2000/svg">'+
+      '<path d="M2 12c0-2.4 1-4 3-5l3.4-2.6c1-.8 2.2-1.2 3.5-1.2h6.6c1.4 0 2.6.5 3.6 1.4L25 7c1.8.2 3 1 3 3v2H2v-0z" '+
+      'fill="'+color+'" fill-opacity="0.18" stroke="'+color+'" stroke-width="1.2"/>'+
+      '<path d="M9 6.2 8 9h13l-1.2-3.2c-.5-1-1.4-1.6-2.5-1.6h-5.8c-.9 0-1.8.4-2.5 1.2Z" fill="'+color+'" fill-opacity="0.45"/>'+
+      '<circle cx="9" cy="13.5" r="2.6" fill="#050604" stroke="'+color+'" stroke-width="1.1"/>'+
+      '<circle cx="22" cy="13.5" r="2.6" fill="#050604" stroke="'+color+'" stroke-width="1.1"/>'+
+      '</svg>';
+  }
+
+  function crossCarSVG(color){
+    return '<svg width="14" height="24" viewBox="0 0 14 24" fill="none" xmlns="http://www.w3.org/2000/svg">'+
+      '<rect x="1" y="1" width="12" height="22" rx="3" fill="'+color+'" fill-opacity="0.22" stroke="'+color+'" stroke-width="1.2"/>'+
+      '<rect x="3" y="4" width="8" height="6" rx="1" fill="'+color+'" fill-opacity="0.5"/>'+
+      '</svg>';
+  }
+
+  // ================= DOM refs =================
+  var viewport   = document.getElementById('viewport');
+  var truckLayer = document.getElementById('truckLayer');
+  var junctionLayer = document.getElementById('junctionLayer');
+  var laneTop = document.getElementById('laneTop');
+  var laneMid = document.getElementById('laneMid');
+  var laneBot = document.getElementById('laneBot');
+
+  var ctrlTrucks = document.getElementById('ctrlTrucks');
+  var ctrlGap    = document.getElementById('ctrlGap');
+  var ctrlSpeed  = document.getElementById('ctrlSpeed');
+  var ctrlMesh   = document.getElementById('ctrlMesh');
+
+  var valTrucks = document.getElementById('valTrucks');
+  var valGap    = document.getElementById('valGap');
+  var valSpeed  = document.getElementById('valSpeed');
+
+  var outFuel    = document.getElementById('outFuel');
+  var outLatency = document.getElementById('outLatency');
+  var outReact   = document.getElementById('outReact');
+  var outMargin  = document.getElementById('outMargin');
+  var cellMargin = document.getElementById('cellMargin');
+  var safetyDot  = document.getElementById('safetyDot');
+  var safetyText = document.getElementById('safetyText');
+  var signalDot  = document.getElementById('signalDot');
+  var signalText = document.getElementById('signalText');
+
+  var meshOn = true;
+  var truckW = 56;
+
+  // ================= World / scroll model =================
+  var scrollOffset = 0;      // world px traveled
+  var lastTs = null;
+  var frozenAtSignal = false;
+
+  var PERIOD = 900;          // world px between repeats of the SAME junction
+  var JUNCTIONS = [
+    { id:'A', base:0,   phaseOffset:0    },
+    { id:'B', base:460, phaseOffset:3800 }
+  ];
+  var SIGNAL_CYCLE = 7600, GREEN_LEN = 3400, YELLOW_LEN = 750; // rest = red
+  var STOP_ZONE = 78;         // world px ahead where convoy commits to stopping
+  var PX_TO_M = 0.34;         // cosmetic scale for the "distance to signal" readout
+
+  var CAR_COUNT = 6, CAR_SPACING = 150;
+  var CAR_SPAN = CAR_COUNT * CAR_SPACING;
+  var CAR_COLORS = ['#8a97a3','#c79a52','#6f93a8','#9a8a76','#7a8a6a','#a3768a'];
+
+  function wrapMod(x,m){ return ((x % m) + m) % m; }
+
+  function getSignalState(junction, tMs){
+    var t = wrapMod(tMs + junction.phaseOffset, SIGNAL_CYCLE);
+    if (t < GREEN_LEN) return 'green';
+    if (t < GREEN_LEN + YELLOW_LEN) return 'yellow';
+    return 'red';
+  }
+
+  // ================= Build pools =================
+  var truckEls = [], beamEls = [];
+  var junctionEls = []; // {root, lampRed, lampYellow, lampGreen, crossCar, junction}
+  var carEls = [];
+
+  function TRUCK_X(){
+    var w = viewport.clientWidth || 900;
+    return Math.max(230, Math.min(420, Math.round(w*0.56)));
+  }
+
+  function buildConvoy(){
+    truckLayer.querySelectorAll('.truck-node,.mesh-beam').forEach(function(n){ n.remove(); });
+    truckEls = []; beamEls = [];
+
+    var n = parseInt(ctrlTrucks.value,10);
+    var gapM = parseInt(ctrlGap.value,10);
+    var gapPx = 26 + (gapM-8)/(50-8)*134;
+    var tx = TRUCK_X();
+
+    var positions = [];
+    for(var i=0;i<n;i++){
+      var left = tx - truckW - i*(truckW+gapPx);
+      positions.push(left);
+      var node = document.createElement('div');
+      node.className = 'truck-node' + (i===0?' lead':'');
+      node.style.left = left+'px';
+      node.innerHTML = '<div class="truck-label">'+(i===0?'LEAD':'F'+i)+'</div>'+truckSVG(i===0?'#76b900':'#8ea77a', truckW);
+      truckLayer.appendChild(node);
+      truckEls.push(node);
+    }
+    for(var j=1;j<n;j++){
+      var x1 = positions[j] + truckW;
+      var x2 = positions[j-1];
+      var beam = document.createElement('div');
+      beam.className = 'mesh-beam' + (meshOn ? '' : ' off');
+      beam.style.left = x1+'px';
+      beam.style.width = Math.max(2,(x2-x1))+'px';
+      beam.style.bottom = '48px';
+      beam.innerHTML = '<div class="beam-line"></div><div class="beam-pulse"></div>';
+      truckLayer.appendChild(beam);
+      beamEls.push(beam);
+    }
+  }
+
+  function buildJunctions(){
+    junctionLayer.innerHTML = '';
+    junctionEls = [];
+    JUNCTIONS.forEach(function(junction){
+      [-1,0,1].forEach(function(k){
+        var root = document.createElement('div');
+        root.className = 'junction';
+        root.innerHTML =
+          '<div class="strip"></div>'+
+          '<div class="crosswalk"></div>'+
+          '<div class="junction-label">JCT '+junction.id+'</div>'+
+          '<div class="pole"></div>'+
+          '<div class="signal-head">'+
+            '<span class="lamp red"></span>'+
+            '<span class="lamp yellow"></span>'+
+            '<span class="lamp green"></span>'+
+          '</div>'+
+          '<div class="cross-car">'+crossCarSVG('#6f93a8')+'</div>';
+        junctionLayer.appendChild(root);
+        junctionEls.push({
+          root:root,
+          variant:k,
+          junction:junction,
+          lampRed: root.querySelector('.lamp.red'),
+          lampYellow: root.querySelector('.lamp.yellow'),
+          lampGreen: root.querySelector('.lamp.green'),
+          crossCar: root.querySelector('.cross-car')
+        });
+      });
+    });
+  }
+
+  function buildCars(){
+    truckLayer.querySelectorAll('.street-car').forEach(function(n){ n.remove(); });
+    carEls = [];
+    for(var i=0;i<CAR_COUNT;i++){
+      var el = document.createElement('div');
+      el.className = 'street-car';
+      el.innerHTML = carSVG(CAR_COLORS[i % CAR_COLORS.length], 34);
+      truckLayer.appendChild(el);
+      carEls.push({ el:el, worldBase:i*CAR_SPACING });
+    }
+  }
+
+  // ================= Telemetry (slider-driven) =================
+  function updateTelemetry(){
+    var n = parseInt(ctrlTrucks.value,10);
+    var gapM = parseInt(ctrlGap.value,10);
+    var speed = parseInt(ctrlSpeed.value,10);
+
+    valTrucks.textContent = n + (n===1?' truck':' trucks');
+    valGap.textContent = gapM + ' m';
+    valSpeed.textContent = speed + ' km/h';
+
+    var perFollowerSave = Math.max(3, Math.min(22, 24 - gapM*0.42));
+    var fleetSave = meshOn ? ((n-1)*perFollowerSave)/n : Math.max(0, perFollowerSave*0.25*(n-1)/n);
+    outFuel.childNodes[0].nodeValue = fleetSave.toFixed(1);
+
+    var latency = meshOn ? (8 + Math.round(Math.random()*5)) : 0;
+    outLatency.childNodes[0].nodeValue = meshOn ? latency : '—';
+
+    var reactionTime = meshOn ? 0.15 : 1.1;
+    var speedMs = speed/3.6;
+    var reactDist = (speedMs*reactionTime).toFixed(1);
+    outReact.childNodes[0].nodeValue = reactDist;
+
+    var margin = (gapM - parseFloat(reactDist) - 2).toFixed(1);
+    outMargin.childNodes[0].nodeValue = margin;
+
+    cellMargin.className = 'readout-cell';
+    if(margin < 0){
+      cellMargin.classList.add('warn');
+      safetyDot.style.background = 'var(--danger)';
+      safetyText.textContent = 'Margin negative — commanded gap too tight for current reaction budget. Widen gap or re-establish mesh.';
+    } else if(margin < 4){
+      cellMargin.classList.add('warn');
+      safetyDot.style.background = 'var(--amber)';
+      safetyText.textContent = 'Margin thin — formation is inside the recommended buffer for this speed.';
+    } else {
+      cellMargin.classList.add('accent');
+      safetyDot.style.background = 'var(--green)';
+      safetyText.textContent = meshOn
+        ? 'Formation nominal — gap holds positive margin under mesh control.'
+        : 'Mesh offline — followers reverted to solo adaptive cruise, gap widened to compensate.';
+    }
+  }
+
+  // ================= Animation loop =================
+  function tick(ts){
+    if(lastTs === null) lastTs = ts;
+    var dt = ts - lastTs;
+    lastTs = ts;
+    var now = ts;
+
+    var speed = parseInt(ctrlSpeed.value,10);
+    var pxPerMs = speed * 0.0055;
+
+    // find nearest junction ahead + its state
+    var nearestDist = Infinity, nearestState = 'green';
+    JUNCTIONS.forEach(function(junction){
+      var d = wrapMod(junction.base - scrollOffset, PERIOD);
+      var state = getSignalState(junction, now);
+      if(d < nearestDist){ nearestDist = d; nearestState = state; }
+    });
+
+    frozenAtSignal = nearestDist < STOP_ZONE && (nearestState === 'red' || nearestState === 'yellow');
+
+    if(!frozenAtSignal){
+      scrollOffset = wrapMod(scrollOffset + pxPerMs*dt, 1e7);
+    }
+
+    // lanes
+    var lp = -wrapMod(scrollOffset, 62) + 'px';
+    laneTop.style.backgroundPositionX = lp;
+    laneMid.style.backgroundPositionX = lp;
+    laneBot.style.backgroundPositionX = lp;
+
+    // junctions
+    var tx = TRUCK_X();
+    junctionEls.forEach(function(j){
+      var d = wrapMod(j.junction.base - scrollOffset, PERIOD) + j.variant*PERIOD;
+      var screenX = tx + d;
+      j.root.style.left = (screenX - 26) + 'px';
+      var state = getSignalState(j.junction, now);
+      j.lampRed.classList.toggle('active', state==='red');
+      j.lampYellow.classList.toggle('active', state==='yellow');
+      j.lampGreen.classList.toggle('active', state==='green');
+      var visible = screenX > -80 && screenX < (viewport.clientWidth+80);
+      j.root.style.display = visible ? 'block' : 'none';
+      j.crossCar.classList.toggle('running', visible && state==='red');
+    });
+
+    // cars
+    carEls.forEach(function(c){
+      var d = wrapMod(c.worldBase - scrollOffset, CAR_SPAN) - CAR_SPAN/2;
+      var screenX = tx + d;
+      c.el.style.left = screenX + 'px';
+    });
+
+    // signal readout
+    var meters = Math.max(0, Math.round(nearestDist * PX_TO_M));
+    var stateLabel = nearestState.toUpperCase();
+    signalDot.style.background = nearestState==='green' ? 'var(--green)' : (nearestState==='yellow' ? 'var(--amber)' : 'var(--danger)');
+    if(frozenAtSignal){
+      signalText.textContent = 'Holding at junction — signal ' + stateLabel + '. Convoy will resume automatically on green.';
+    } else {
+      signalText.textContent = 'Next junction: ' + stateLabel + ' · ' + meters + ' m ahead.';
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  // ================= Wiring =================
+  ctrlTrucks.addEventListener('input', function(){ buildConvoy(); updateTelemetry(); });
+  ctrlGap.addEventListener('input', function(){ buildConvoy(); updateTelemetry(); });
+  ctrlSpeed.addEventListener('input', updateTelemetry);
+  ctrlMesh.addEventListener('click', function(){
+    meshOn = !meshOn;
+    ctrlMesh.classList.toggle('on', meshOn);
+    beamEls.forEach(function(b){ b.classList.toggle('off', !meshOn); });
+    updateTelemetry();
+  });
+  window.addEventListener('resize', buildConvoy);
+
+  buildConvoy();
+  buildJunctions();
+  buildCars();
+  updateTelemetry();
+  setInterval(function(){ if(meshOn) updateTelemetry(); }, 2600);
+  requestAnimationFrame(tick);
+
+})();
+</script>
+
+</body>
+</html>
