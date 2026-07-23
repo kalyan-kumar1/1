@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NAVCORE / Autonomous Floor Navigation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B1220;
+    --bg2:#0E1730;
+    --panel: rgba(14,23,44,0.74);
+    --line: rgba(122,148,196,0.16);
+    --line-strong: rgba(122,148,196,0.34);
+    --wall:#33507A;
+    --wall-edge:#6C93C4;
+    --grid: rgba(108,147,196,0.10);
+    --accent:#FF7A45;
+    --accent-dim: rgba(255,122,69,0.16);
+    --mint:#7FE7C4;
+    --mint-dim: rgba(127,231,196,0.14);
+    --text:#E7EDF5;
+    --text-muted:#8593AD;
+    --text-faint:#4C5878;
+    --danger:#FF5D6C;
+    --sans:'Sora', sans-serif;
+    --mono:'IBM Plex Mono', monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{
+    width:100%; height:100%; overflow:hidden;
+    background: radial-gradient(ellipse at 50% 20%, var(--bg2) 0%, var(--bg) 65%);
+    color: var(--text);
+    font-family: var(--mono);
+  }
+
+  #stage{position:fixed; inset:0;}
+  #floorCanvas{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    display:block;
+    cursor:crosshair;
+    touch-action:none;
+  }
+
+  .hud{position:fixed; inset:0; z-index:5; pointer-events:none; padding:26px;}
+  .hud > *{pointer-events:auto;}
+
+  /* ---------- Top bar ---------- */
+  .topbar{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:20px;
+  }
+  .brand{display:flex; align-items:center; gap:12px;}
+  .brand .mark{
+    width:36px; height:36px; border-radius:8px;
+    border:1.5px solid var(--accent);
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+  }
+  .brand .mark::before{
+    content:''; width:12px; height:12px; border-radius:2px;
+    background: var(--accent);
+    box-shadow:0 0 10px var(--accent);
+  }
+  .brand h1{
+    font-family: var(--sans);
+    font-weight:700;
+    font-size:19px;
+    letter-spacing:0.01em;
+    color:var(--text);
+  }
+  .brand .sub{
+    font-size:11px; color:var(--text-muted); letter-spacing:0.08em;
+    text-transform:uppercase; margin-top:2px;
+  }
+
+  .mode-pill{
+    display:flex; align-items:center; gap:10px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    backdrop-filter: blur(10px);
+    padding:10px 16px;
+    border-radius:100px;
+    font-size:12px; letter-spacing:0.08em; text-transform:uppercase;
+  }
+  .mode-pill .dot{
+    width:8px; height:8px; border-radius:50%;
+    background: var(--accent);
+    box-shadow:0 0 0 0 rgba(255,122,69,0.55);
+    animation: pulse 1.7s ease-out infinite;
+  }
+  .mode-pill .dot.idle{ background:var(--text-faint); animation:none; box-shadow:none; }
+  .mode-pill .dot.goal{ background:var(--mint); box-shadow:0 0 0 0 rgba(127,231,196,0.55); animation: pulseMint 1.4s ease-out infinite; }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(255,122,69,0.55);}
+    70%{box-shadow:0 0 0 9px rgba(255,122,69,0);}
+    100%{box-shadow:0 0 0 0 rgba(255,122,69,0);}
+  }
+  @keyframes pulseMint{
+    0%{box-shadow:0 0 0 0 rgba(127,231,196,0.55);}
+    70%{box-shadow:0 0 0 9px rgba(127,231,196,0);}
+    100%{box-shadow:0 0 0 0 rgba(127,231,196,0);}
+  }
+  .mode-pill b{color:var(--text); font-weight:600;}
+
+  .hint{
+    position:absolute; top:96px; left:50%; transform:translateX(-50%);
+    font-size:11px; color:var(--text-muted); letter-spacing:0.05em;
+    background:var(--panel); border:1px solid var(--line);
+    padding:8px 14px; border-radius:100px; backdrop-filter: blur(8px);
+    white-space:nowrap;
+    transition: opacity .4s ease;
+  }
+  .hint.hide{opacity:0;}
+
+  /* ---------- Bottom dock ---------- */
+  .dock{
+    position:absolute; left:26px; bottom:26px; right:26px;
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap:16px; flex-wrap:wrap;
+  }
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    backdrop-filter: blur(14px);
+    border-radius:12px;
+    padding:16px 18px;
+  }
+  .panel-title{
+    font-family:var(--sans);
+    font-size:10.5px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--text-muted);
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:12px; padding-bottom:10px;
+    border-bottom:1px solid var(--line);
+    gap:16px;
+  }
+
+  .telemetry{min-width:300px;}
+  .t-row{
+    display:grid; grid-template-columns:78px 1fr; gap:10px;
+    font-size:11.5px; margin-bottom:8px; align-items:baseline;
+  }
+  .t-row:last-child{margin-bottom:0;}
+  .t-row .k{color:var(--text-muted); letter-spacing:0.06em;}
+  .t-row .v{color:var(--text); font-weight:600; font-variant-numeric:tabular-nums;}
+  .t-row .v.accent{color:var(--accent);}
+  .t-row .v.mint{color:var(--mint);}
+  .t-row .v.faint{color:var(--text-faint); font-weight:400;}
+
+  .progress-track{
+    margin-top:4px; height:4px; border-radius:2px;
+    background: rgba(122,148,196,0.14); overflow:hidden;
+  }
+  .progress-fill{
+    height:100%; width:0%; border-radius:2px;
+    background: linear-gradient(90deg, var(--mint), var(--accent));
+    transition: width .15s linear;
+  }
+
+  .legend{
+    display:flex; flex-direction:column; gap:9px; min-width:168px;
+  }
+  .legend-row{display:flex; align-items:center; gap:9px; font-size:11px; color:var(--text-muted);}
+  .swatch{width:11px; height:11px; border-radius:3px; flex-shrink:0;}
+
+  .controls{display:flex; flex-direction:column; gap:8px; align-items:flex-end;}
+  .ctl-btn{
+    display:flex; align-items:center; gap:8px;
+    background:var(--panel); border:1px solid var(--line);
+    backdrop-filter: blur(10px); color:var(--text);
+    font-family:var(--mono); font-size:11px; letter-spacing:0.06em; text-transform:uppercase;
+    padding:10px 14px; border-radius:8px; cursor:pointer;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .ctl-btn:hover{border-color:var(--line-strong); background:rgba(20,30,52,0.85);}
+  .ctl-btn:focus-visible{outline:2px solid var(--mint); outline-offset:2px;}
+  .ctl-btn.active{border-color:var(--accent); color:var(--accent);}
+
+  .toast{
+    position:fixed; z-index:20; pointer-events:none;
+    font-family:var(--mono); font-size:11px; letter-spacing:0.05em;
+    color:var(--danger);
+    background: rgba(20,10,14,0.85);
+    border:1px solid rgba(255,93,108,0.4);
+    padding:6px 10px; border-radius:6px;
+    transform:translate(-50%,-140%);
+    opacity:0; transition: opacity .25s ease, transform .25s ease;
+    white-space:nowrap;
+  }
+  .toast.show{opacity:1; transform:translate(-50%,-160%);}
+
+  @media (max-width:860px){
+    .dock{flex-direction:column; align-items:stretch;}
+    .telemetry{min-width:0;}
+    .controls{flex-direction:row; align-items:center; justify-content:flex-end; flex-wrap:wrap;}
+    .legend{flex-direction:row; flex-wrap:wrap; gap:12px;}
+    .brand .sub{display:none;}
+    .hint{display:none;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .mode-pill .dot{animation:none;}
+  }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="floorCanvas"></canvas>
+</div>
+
+<div class="hud">
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark"></div>
+      <div>
+        <h1>NAVCORE</h1>
+        <div class="sub">Autonomous Floor Navigation &middot; AR&#8209;Tag SLAM</div>
+      </div>
+    </div>
+    <div class="mode-pill">
+      <span class="dot" id="modeDot"></span>
+      <span>Mode</span>
+      <b id="modeValue">Idle</b>
+    </div>
+  </div>
+
+  <div class="hint" id="hint">Click anywhere on the floor to send the platform there</div>
+
+  <div class="dock">
+    <div class="panel telemetry">
+      <div class="panel-title"><span>Platform Telemetry</span><span id="tagStatus" style="color:var(--text-faint); font-weight:600;">NO LOCK</span></div>
+      <div class="t-row"><span class="k">POSITION</span><span class="v" id="valPos">0.00, 0.00 m</span></div>
+      <div class="t-row"><span class="k">HEADING</span><span class="v" id="valHeading">0&deg;</span></div>
+      <div class="t-row"><span class="k">SPEED</span><span class="v" id="valSpeed">0.00 m/s</span></div>
+      <div class="t-row"><span class="k">AR&#8209;TAG</span><span class="v mint" id="valTag">&mdash;</span></div>
+      <div class="t-row"><span class="k">WAYPOINTS</span><span class="v faint" id="valWaypoints">0 remaining</span></div>
+      <div class="t-row"><span class="k">PROGRESS</span><span class="v accent" id="valProgress">0%</span></div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+
+    <div class="panel legend">
+      <div class="panel-title"><span>Legend</span></div>
+      <div class="legend-row"><span class="swatch" style="background:var(--wall-edge);"></span>Wall / obstacle</div>
+      <div class="legend-row"><span class="swatch" style="background:var(--accent);"></span>Planned path</div>
+      <div class="legend-row"><span class="swatch" style="background:var(--mint);"></span>AR&#8209;tag beacon</div>
+      <div class="legend-row"><span class="swatch" style="background:#dfe6ee;"></span>Mobile platform</div>
+    </div>
+
+    <div class="controls">
+      <button class="ctl-btn" id="btnReset"><span>&#8635;</span>Reset Platform</button>
+      <button class="ctl-btn" id="btnGrid"><span>&#9638;</span>Toggle Occupancy Grid</button>
+      <button class="ctl-btn" id="btnWander"><span>&#8635;</span>Auto&#8209;Explore</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">TARGET BLOCKED &mdash; INSIDE WALL</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ============================================================
+  // World / floor-plan definition
+  // ============================================================
+  var WORLD_W = 1200, WORLD_H = 760;
+  var CELL = 20;
+  var GRID_W = Math.floor(WORLD_W/CELL), GRID_H = Math.floor(WORLD_H/CELL);
+  var ROBOT_RADIUS = 13;
+  var PAD = ROBOT_RADIUS + 9; // collision inflation so the platform never clips a wall
+
+  // Wall rectangles: outer shell + interior partitions with doorway gaps.
+  var WALLS = [
+    // outer shell
+    {x:30,  y:30,  w:1140, h:18},   // top
+    {x:30,  y:712, w:1140, h:18},   // bottom
+    {x:30,  y:30,  w:18,   h:700},  // left
+    {x:1152,y:30,  w:18,   h:700},  // right
+
+    // interior partition 1 (doorway gap y 268-350)
+    {x:420, y:48,  w:18, h:220},
+    {x:420, y:350, w:18, h:362},
+
+    // interior partition 2 (doorway gap y 228-320)
+    {x:800, y:48,  w:18, h:180},
+    {x:800, y:320, w:18, h:392},
+
+    // interior partition 3, short vertical stub (doorway gap y 388-560)
+    {x:900, y:48,  w:18, h:340},
+    {x:900, y:560, w:18, h:152},
+
+    // interior partition 4, horizontal (doorway gap x 568-660)
+    {x:438, y:460, w:130, h:18},
+    {x:660, y:460, w:158, h:18}
+  ];
+
+  // AR-tag beacons, placed at doorways / corners for localization
+  var AR_TAGS = [
+    {id:'TAG-01', x:120,  y:110},
+    {id:'TAG-02', x:429,  y:309},
+    {id:'TAG-03', x:809,  y:274},
+    {id:'TAG-04', x:614,  y:469},
+    {id:'TAG-05', x:909,  y:474},
+    {id:'TAG-06', x:1050, y:650}
+  ];
+  var TAG_LOCK_RANGE = 95;
+  var TAG_VISIBLE_RANGE = 240;
+
+  // ============================================================
+  // Geometry helpers
+  // ============================================================
+  function inflateRect(r, pad){
+    return {x:r.x-pad, y:r.y-pad, w:r.w+pad*2, h:r.h+pad*2};
+  }
+  function pointInRect(px,py,r){
+    return px>=r.x && px<=r.x+r.w && py>=r.y && py<=r.y+r.h;
+  }
+  function segIntersect(p1,p2,p3,p4){
+    function cross(ax,ay,bx,by){return ax*by-ay*bx;}
+    var r = {x:p2.x-p1.x, y:p2.y-p1.y};
+    var s = {x:p4.x-p3.x, y:p4.y-p3.y};
+    var denom = cross(r.x,r.y,s.x,s.y);
+    if(denom === 0) return false;
+    var qp = {x:p3.x-p1.x, y:p3.y-p1.y};
+    var t = cross(qp.x,qp.y,s.x,s.y)/denom;
+    var u = cross(qp.x,qp.y,r.x,r.y)/denom;
+    return t>=0 && t<=1 && u>=0 && u<=1;
+  }
+  function segIntersectsRect(p1,p2,rect){
+    if(pointInRect(p1.x,p1.y,rect) || pointInRect(p2.x,p2.y,rect)) return true;
+    var x0=rect.x,y0=rect.y,x1=rect.x+rect.w,y1=rect.y+rect.h;
+    var edges = [
+      [{x:x0,y:y0},{x:x1,y:y0}],
+      [{x:x1,y:y0},{x:x1,y:y1}],
+      [{x:x1,y:y1},{x:x0,y:y1}],
+      [{x:x0,y:y1},{x:x0,y:y0}]
+    ];
+    for(var i=0;i<edges.length;i++){
+      if(segIntersect(p1,p2,edges[i][0],edges[i][1])) return true;
+    }
+    return false;
+  }
+  function lineClear(p1,p2){
+    for(var i=0;i<WALLS.length;i++){
+      if(segIntersectsRect(p1,p2, inflateRect(WALLS[i], PAD))) return false;
+    }
+    return true;
+  }
+  function pointBlocked(px,py){
+    for(var i=0;i<WALLS.length;i++){
+      if(pointInRect(px,py, inflateRect(WALLS[i], PAD))) return true;
+    }
+    return px<10 || py<10 || px>WORLD_W-10 || py>WORLD_H-10;
+  }
+
+  // ============================================================
+  // Occupancy grid + A*
+  // ============================================================
+  var occupancy = new Uint8Array(GRID_W*GRID_H);
+  (function buildGrid(){
+    for(var gy=0; gy<GRID_H; gy++){
+      for(var gx=0; gx<GRID_W; gx++){
+        var cx = gx*CELL + CELL/2, cy = gy*CELL + CELL/2;
+        occupancy[gy*GRID_W+gx] = pointBlocked(cx,cy) ? 1 : 0;
+      }
+    }
+  })();
+  function cellFree(gx,gy){
+    if(gx<0||gy<0||gx>=GRID_W||gy>=GRID_H) return false;
+    return occupancy[gy*GRID_W+gx] === 0;
+  }
+  function worldToCell(x,y){ return {x:Math.floor(x/CELL), y:Math.floor(y/CELL)}; }
+  function cellCenter(gx,gy){ return {x:gx*CELL+CELL/2, y:gy*CELL+CELL/2}; }
+
+  function findNearestFreeCell(gx,gy){
+    if(cellFree(gx,gy)) return {x:gx,y:gy};
+    for(var r=1;r<8;r++){
+      for(var dy=-r;dy<=r;dy++){
+        for(var dx=-r;dx<=r;dx++){
+          if(Math.max(Math.abs(dx),Math.abs(dy))!==r) continue;
+          if(cellFree(gx+dx,gy+dy)) return {x:gx+dx,y:gy+dy};
+        }
+      }
+    }
+    return {x:gx,y:gy};
+  }
+
+  function astar(start, goal){
+    var key = function(x,y){ return x+','+y; };
+    var open = [{x:start.x,y:start.y,g:0,f:0,parent:null}];
+    var openMap = {}; openMap[key(start.x,start.y)] = open[0];
+    var closed = {};
+
+    while(open.length){
+      var bestIdx = 0;
+      for(var i=1;i<open.length;i++){ if(open[i].f < open[bestIdx].f) bestIdx = i; }
+      var current = open.splice(bestIdx,1)[0];
+      delete openMap[key(current.x,current.y)];
+      closed[key(current.x,current.y)] = true;
+
+      if(current.x === goal.x && current.y === goal.y){
+        var path = [];
+        var n = current;
+        while(n){ path.unshift({x:n.x,y:n.y}); n = n.parent; }
+        return path;
+      }
+
+      for(var dx=-1; dx<=1; dx++){
+        for(var dy=-1; dy<=1; dy++){
+          if(dx===0 && dy===0) continue;
+          var nx = current.x+dx, ny = current.y+dy;
+          if(!cellFree(nx,ny)) continue;
+          // prevent cutting diagonally across a wall corner
+          if(dx!==0 && dy!==0){
+            if(!cellFree(current.x+dx, current.y) || !cellFree(current.x, current.y+dy)) continue;
+          }
+          if(closed[key(nx,ny)]) continue;
+          var moveCost = (dx!==0 && dy!==0) ? Math.SQRT2 : 1;
+          var g = current.g + moveCost;
+          var existing = openMap[key(nx,ny)];
+          if(!existing || g < existing.g){
+            var h = Math.hypot(goal.x-nx, goal.y-ny);
+            var node = {x:nx, y:ny, g:g, f:g+h, parent:current};
+            openMap[key(nx,ny)] = node;
+            if(existing){
+              var idx = open.indexOf(existing);
+              if(idx!==-1) open.splice(idx,1);
+            }
+            open.push(node);
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  function smoothPath(points){
+    if(points.length < 3) return points.slice();
+    var result = [points[0]];
+    var i = 0;
+    while(i < points.length-1){
+      var j = points.length-1;
+      while(j > i+1 && !lineClear(points[i], points[j])) j--;
+      result.push(points[j]);
+      i = j;
+    }
+    return result;
+  }
+
+  function planPath(fromWorld, toWorld){
+    var startCell = findNearestFreeCell(worldToCell(fromWorld.x,fromWorld.y).x, worldToCell(fromWorld.x,fromWorld.y).y);
+    var goalCell = worldToCell(toWorld.x, toWorld.y);
+    if(!cellFree(goalCell.x, goalCell.y)) return null;
+    var raw = astar(startCell, goalCell);
+    if(!raw) return null;
+    var worldPts = [ {x:fromWorld.x, y:fromWorld.y} ];
+    for(var i=0;i<raw.length;i++){ worldPts.push(cellCenter(raw[i].x, raw[i].y)); }
+    worldPts.push({x:toWorld.x, y:toWorld.y});
+    return smoothPath(worldPts);
+  }
+
+  // ============================================================
+  // Robot state
+  // ============================================================
+  var robot = {
+    x: 130, y: 400,
+    heading: 0,
+    speed: 0,
+    maxSpeed: 92,       // world units / sec
+    maxTurnRate: 3.4,   // rad / sec
+    path: [],
+    pathIdx: 0,
+    totalPathLen: 0,
+    traveled: 0,
+    trail: []
+  };
+  var mode = 'IDLE';
+  var wanderMode = false;
+  var goalMarker = null;
+
+  function pathLength(pts){
+    var len = 0;
+    for(var i=1;i<pts.length;i++){ len += Math.hypot(pts[i].x-pts[i-1].x, pts[i].y-pts[i-1].y); }
+    return len;
+  }
+
+  function setGoal(wx, wy){
+    if(pointBlocked(wx,wy)){
+      flashToast(wx,wy);
+      return;
+    }
+    var path = planPath({x:robot.x,y:robot.y}, {x:wx,y:wy});
+    if(!path){ return; }
+    robot.path = path;
+    robot.pathIdx = 1;
+    robot.totalPathLen = pathLength(path);
+    robot.traveled = 0;
+    goalMarker = {x:wx, y:wy};
+    mode = 'EXECUTING';
+    hideHint();
+  }
+
+  function randomFreePoint(){
+    for(var attempts=0; attempts<40; attempts++){
+      var x = 50 + Math.random()*(WORLD_W-100);
+      var y = 50 + Math.random()*(WORLD_H-100);
+      if(!pointBlocked(x,y)) return {x:x,y:y};
+    }
+    return {x:robot.x, y:robot.y};
+  }
+
+  // ============================================================
+  // Canvas + render
+  // ============================================================
+  var canvas = document.getElementById('floorCanvas');
+  var ctx = canvas.getContext('2d');
+  var showGrid = false;
+
+  function resizeCanvas(){
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var rect = canvas.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  function getTransform(){
+    var rect = canvas.getBoundingClientRect();
+    var scale = Math.min(rect.width/WORLD_W, rect.height/WORLD_H);
+    var offsetX = (rect.width - WORLD_W*scale)/2;
+    var offsetY = (rect.height - WORLD_H*scale)/2;
+    return {rect:rect, scale:scale, offsetX:offsetX, offsetY:offsetY};
+  }
+
+  function worldToScreen(t, x, y){
+    return {x: t.offsetX + x*t.scale, y: t.offsetY + y*t.scale};
+  }
+  function screenToWorld(t, x, y){
+    return {x:(x - t.offsetX)/t.scale, y:(y - t.offsetY)/t.scale};
+  }
+
+  function drawFloor(t){
+    ctx.fillStyle = '#0C1526';
+    roundRectPath(30,30,WORLD_W-60, WORLD_H-60, 6);
+    ctx.fill();
+
+    if(showGrid){
+      ctx.strokeStyle = 'rgba(255,122,69,0.10)';
+      ctx.lineWidth = 1/t.scale;
+      for(var gx=0; gx<GRID_W; gx++){
+        for(var gy=0; gy<GRID_H; gy++){
+          if(occupancy[gy*GRID_W+gx]===1){
+            ctx.fillStyle = 'rgba(255,122,69,0.06)';
+            ctx.fillRect(gx*CELL, gy*CELL, CELL, CELL);
+          }
+        }
+      }
+    }
+
+    ctx.strokeStyle = 'var(--grid)';
+    ctx.strokeStyle = 'rgba(108,147,196,0.10)';
+    ctx.lineWidth = 1/t.scale;
+    for(var x=30; x<=WORLD_W-30; x+=CELL*2){
+      ctx.beginPath(); ctx.moveTo(x,30); ctx.lineTo(x,WORLD_H-30); ctx.stroke();
+    }
+    for(var y=30; y<=WORLD_H-30; y+=CELL*2){
+      ctx.beginPath(); ctx.moveTo(30,y); ctx.lineTo(WORLD_W-30,y); ctx.stroke();
+    }
+  }
+
+  function roundRectPath(x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  function drawWalls(){
+    for(var i=0;i<WALLS.length;i++){
+      var w = WALLS[i];
+      ctx.fillStyle = '#33507A';
+      roundRectPath(w.x,w.y,w.w,w.h,3);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(108,147,196,0.55)';
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    }
+  }
+
+  function drawTags(t, time){
+    for(var i=0;i<AR_TAGS.length;i++){
+      var tag = AR_TAGS[i];
+      var d = Math.hypot(robot.x-tag.x, robot.y-tag.y);
+      var locked = d < TAG_LOCK_RANGE;
+      var visible = d < TAG_VISIBLE_RANGE;
+      var alpha = visible ? (locked ? 1 : 0.55) : 0.28;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.translate(tag.x, tag.y);
+      ctx.rotate(Math.PI/4);
+      ctx.fillStyle = '#0C1526';
+      ctx.fillRect(-7,-7,14,14);
+      ctx.strokeStyle = locked ? '#7FE7C4' : 'rgba(127,231,196,0.55)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-7,-7,14,14);
+      ctx.restore();
+
+      if(locked){
+        var pulse = 10 + (Math.sin(time*4)+1)*6;
+        ctx.save();
+        ctx.globalAlpha = 0.35 * (1-((Math.sin(time*4)+1)/2)*0.7);
+        ctx.strokeStyle = '#7FE7C4';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(tag.x, tag.y, pulse, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      ctx.save();
+      ctx.globalAlpha = Math.max(alpha,0.4);
+      ctx.fillStyle = locked ? '#7FE7C4' : '#5C7A9A';
+      ctx.font = '600 10px "IBM Plex Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(tag.id, tag.x, tag.y - 14);
+      ctx.restore();
+    }
+  }
+
+  function drawPath(){
+    if(robot.path.length < 2) return;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,122,69,0.85)';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.shadowColor = 'rgba(255,122,69,0.55)';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(robot.x, robot.y);
+    for(var i=robot.pathIdx; i<robot.path.length; i++){
+      ctx.lineTo(robot.path[i].x, robot.path[i].y);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    for(var j=robot.pathIdx; j<robot.path.length-1; j++){
+      ctx.fillStyle = 'rgba(255,122,69,0.7)';
+      ctx.beginPath();
+      ctx.arc(robot.path[j].x, robot.path[j].y, 3, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    if(goalMarker){
+      ctx.save();
+      ctx.strokeStyle = '#FF7A45';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(goalMarker.x-9, goalMarker.y);
+      ctx.lineTo(goalMarker.x+9, goalMarker.y);
+      ctx.moveTo(goalMarker.x, goalMarker.y-9);
+      ctx.lineTo(goalMarker.x, goalMarker.y+9);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(goalMarker.x, goalMarker.y, 12, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function drawTrail(){
+    if(robot.trail.length < 2) return;
+    ctx.save();
+    for(var i=1;i<robot.trail.length;i++){
+      var a = i/robot.trail.length;
+      ctx.strokeStyle = 'rgba(223,230,238,' + (a*0.25) + ')';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(robot.trail[i-1].x, robot.trail[i-1].y);
+      ctx.lineTo(robot.trail[i].x, robot.trail[i].y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawRobot(time){
+    ctx.save();
+    ctx.translate(robot.x, robot.y);
+
+    if(mode === 'EXECUTING'){
+      var r = ROBOT_RADIUS + 6 + (Math.sin(time*3)+1)*5;
+      ctx.save();
+      ctx.globalAlpha = 0.25 * (1-((Math.sin(time*3)+1)/2)*0.6);
+      ctx.strokeStyle = '#FF7A45';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0,0,r,0,Math.PI*2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.rotate(robot.heading);
+
+    // sensor cone
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = '#7FE7C4';
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.arc(0,0,42,-0.5,0.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // wheels
+    ctx.fillStyle = '#1A2438';
+    ctx.fillRect(-4,-ROBOT_RADIUS-3,8,5);
+    ctx.fillRect(-4,ROBOT_RADIUS-2,8,5);
+
+    // body
+    ctx.beginPath();
+    ctx.arc(0,0,ROBOT_RADIUS,0,Math.PI*2);
+    ctx.fillStyle = '#DFE6EE';
+    ctx.fill();
+    ctx.strokeStyle = '#FF7A45';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // heading wedge
+    ctx.beginPath();
+    ctx.moveTo(ROBOT_RADIUS-2,0);
+    ctx.lineTo(-2,-6);
+    ctx.lineTo(-2,6);
+    ctx.closePath();
+    ctx.fillStyle = '#0C1526';
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawScaleBar(){
+    var x0 = 46, y0 = WORLD_H-52;
+    ctx.strokeStyle = 'rgba(231,237,245,0.55)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x0,y0); ctx.lineTo(x0+100,y0);
+    ctx.moveTo(x0,y0-4); ctx.lineTo(x0,y0+4);
+    ctx.moveTo(x0+100,y0-4); ctx.lineTo(x0+100,y0+4);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(231,237,245,0.55)';
+    ctx.font = '600 10px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('5 m', x0, y0-9);
+  }
+
+  function drawCompass(){
+    var cx = WORLD_W-64, cy = 66;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(231,237,245,0.4)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(cx,cy,20,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx,cy-16); ctx.lineTo(cx-5,cy+4); ctx.lineTo(cx+5,cy+4); ctx.closePath();
+    ctx.fillStyle = '#FF7A45';
+    ctx.fill();
+    ctx.fillStyle = 'rgba(231,237,245,0.6)';
+    ctx.font = '700 10px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('N', cx, cy-24);
+    ctx.restore();
+  }
+
+  // ============================================================
+  // Update loop
+  // ============================================================
+  var lastTime = performance.now();
+  var startTime = lastTime;
+
+  function updateRobot(dt){
+    if(mode !== 'EXECUTING' || robot.pathIdx >= robot.path.length){
+      robot.speed *= Math.max(0, 1 - dt*4);
+      return;
+    }
+    var target = robot.path[robot.pathIdx];
+    var dx = target.x - robot.x, dy = target.y - robot.y;
+    var dist = Math.hypot(dx,dy);
+    var desiredHeading = Math.atan2(dy,dx);
+
+    var diff = desiredHeading - robot.heading;
+    while(diff > Math.PI) diff -= Math.PI*2;
+    while(diff < -Math.PI) diff += Math.PI*2;
+    var turn = Math.max(-robot.maxTurnRate*dt, Math.min(robot.maxTurnRate*dt, diff));
+    robot.heading += turn;
+
+    var alignment = Math.max(0, Math.cos(diff));
+    var targetSpeed = robot.maxSpeed * (0.35 + 0.65*alignment) * Math.min(1, dist/40);
+    robot.speed += (targetSpeed - robot.speed) * Math.min(1, dt*6);
+
+    var step = robot.speed*dt;
+    if(step >= dist){
+      robot.x = target.x; robot.y = target.y;
+      robot.traveled += dist;
+      robot.pathIdx++;
+      if(robot.pathIdx >= robot.path.length){
+        mode = 'GOAL REACHED';
+        setTimeout(function(){ if(mode==='GOAL REACHED') mode='IDLE'; }, 1600);
+      }
+    } else {
+      robot.x += Math.cos(robot.heading)*step;
+      robot.y += Math.sin(robot.heading)*step;
+      robot.traveled += step;
+    }
+
+    robot.trail.push({x:robot.x,y:robot.y});
+    if(robot.trail.length > 70) robot.trail.shift();
+
+    if(wanderMode && mode === 'GOAL REACHED'){
+      setTimeout(function(){ if(wanderMode) setGoal(randomFreePoint().x, randomFreePoint().y); }, 500);
+    }
+  }
+
+  // ============================================================
+  // HUD updates
+  // ============================================================
+  var elPos = document.getElementById('valPos');
+  var elHeading = document.getElementById('valHeading');
+  var elSpeed = document.getElementById('valSpeed');
+  var elTag = document.getElementById('valTag');
+  var elTagStatus = document.getElementById('tagStatus');
+  var elWaypoints = document.getElementById('valWaypoints');
+  var elProgress = document.getElementById('valProgress');
+  var progressFill = document.getElementById('progressFill');
+  var modeDot = document.getElementById('modeDot');
+  var modeValue = document.getElementById('modeValue');
+
+  var PX_PER_M = 20;
+
+  function updateHUD(){
+    elPos.textContent = (robot.x/PX_PER_M).toFixed(2) + ', ' + (robot.y/PX_PER_M).toFixed(2) + ' m';
+    var degHeading = Math.round(((robot.heading*180/Math.PI)+360)%360);
+    elHeading.textContent = degHeading + '\u00B0';
+    elSpeed.textContent = (robot.speed/PX_PER_M).toFixed(2) + ' m/s';
+
+    var nearest = null, nd = Infinity;
+    for(var i=0;i<AR_TAGS.length;i++){
+      var d = Math.hypot(robot.x-AR_TAGS[i].x, robot.y-AR_TAGS[i].y);
+      if(d<nd){nd=d; nearest=AR_TAGS[i];}
+    }
+    if(nearest && nd < TAG_VISIBLE_RANGE){
+      var conf = Math.max(0, Math.min(100, Math.round(100 - (nd/TAG_LOCK_RANGE)*60)));
+      var locked = nd < TAG_LOCK_RANGE;
+      elTag.textContent = nearest.id + ' \u00B7 ' + conf + '%';
+      elTagStatus.textContent = locked ? 'LOCKED' : 'ACQUIRING';
+      elTagStatus.style.color = locked ? 'var(--mint)' : 'var(--text-muted)';
+    } else {
+      elTag.textContent = '\u2014';
+      elTagStatus.textContent = 'NO LOCK';
+      elTagStatus.style.color = 'var(--text-faint)';
+    }
+
+    var remaining = Math.max(0, robot.path.length - robot.pathIdx);
+    elWaypoints.textContent = remaining + ' remaining';
+
+    var pct = robot.totalPathLen > 0 ? Math.min(100, Math.round((robot.traveled/robot.totalPathLen)*100)) : 0;
+    if(mode === 'IDLE' && robot.totalPathLen === 0) pct = 0;
+    if(mode === 'GOAL REACHED') pct = 100;
+    elProgress.textContent = pct + '%';
+    progressFill.style.width = pct + '%';
+
+    modeValue.textContent = mode.charAt(0) + mode.slice(1).toLowerCase();
+    modeDot.className = 'dot' + (mode==='IDLE' ? ' idle' : mode==='GOAL REACHED' ? ' goal' : '');
+  }
+
+  // ============================================================
+  // Render loop
+  // ============================================================
+  function render(now){
+    var dt = Math.min(0.05, (now-lastTime)/1000);
+    lastTime = now;
+    var time = (now-startTime)/1000;
+
+    updateRobot(dt);
+
+    var t = getTransform();
+    var dpr = canvas.width / t.rect.width;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,t.rect.width,t.rect.height);
+
+    ctx.save();
+    ctx.translate(t.offsetX, t.offsetY);
+    ctx.scale(t.scale, t.scale);
+
+    drawFloor(t);
+    drawWalls();
+    drawScaleBar();
+    drawCompass();
+    drawTrail();
+    drawPath();
+    drawTags(t, time);
+    drawRobot(time);
+
+    ctx.restore();
+
+    updateHUD();
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+
+  // ============================================================
+  // Input
+  // ============================================================
+  var hint = document.getElementById('hint');
+  function hideHint(){ hint.classList.add('hide'); }
+
+  var toast = document.getElementById('toast');
+  var toastTimer = null;
+  function flashToast(wx, wy){
+    var t = getTransform();
+    var s = worldToScreen(t, wx, wy);
+    toast.style.left = s.x + 'px';
+    toast.style.top = s.y + 'px';
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toast.classList.remove('show'); }, 1100);
+  }
+
+  canvas.addEventListener('pointerdown', function(e){
+    var t = getTransform();
+    var mx = e.clientX - t.rect.left, my = e.clientY - t.rect.top;
+    var world = screenToWorld(t, mx, my);
+    if(world.x<0||world.y<0||world.x>WORLD_W||world.y>WORLD_H) return;
+    wanderMode = false;
+    document.getElementById('btnWander').classList.remove('active');
+    setGoal(world.x, world.y);
+  });
+
+  document.getElementById('btnReset').addEventListener('click', function(){
+    wanderMode = false;
+    document.getElementById('btnWander').classList.remove('active');
+    robot.x = 130; robot.y = 400; robot.heading = 0; robot.speed = 0;
+    robot.path = []; robot.pathIdx = 0; robot.totalPathLen = 0; robot.traveled = 0;
+    robot.trail = [];
+    goalMarker = null;
+    mode = 'IDLE';
+  });
+
+  document.getElementById('btnGrid').addEventListener('click', function(e){
+    showGrid = !showGrid;
+    e.currentTarget.classList.toggle('active', showGrid);
+  });
+
+  document.getElementById('btnWander').addEventListener('click', function(e){
+    wanderMode = !wanderMode;
+    e.currentTarget.classList.toggle('active', wanderMode);
+    if(wanderMode){
+      var pt = randomFreePoint();
+      setGoal(pt.x, pt.y);
+    }
+  });
+
+  // Kick off an initial demo path so the scene isn't static on load
+  setTimeout(function(){ setGoal(1050, 640); }, 600);
+
+})();
+</script>
+</body>
+</html>
