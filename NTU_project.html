@@ -738,17 +738,29 @@
     cycleCountEl.textContent = cycleCount;
   }
 
-  function applyPose(p){
-    turret.rotation.y = deg(p.base);
-    shoulderPivot.rotation.z = deg(p.shoulder);
-    elbowPivot.rotation.z = deg(p.elbow - p.shoulder) * 0 + deg(-(p.elbow));
-    wristPivot.rotation.z = deg(p.wrist);
-    var open = p.grip;
-    fingerL.position.x = -0.05 - open*0.14;
-    fingerR.position.x = 0.05 + open*0.14;
-    tipL.position.x = fingerL.position.x;
-    tipR.position.x = fingerR.position.x;
+  function applyPose(p) {
+  turret.rotation.y = deg(p.base);
+  shoulderPivot.rotation.z = deg(p.shoulder);
+  elbowPivot.rotation.z = deg(p.elbow);
+  wristPivot.rotation.z = deg(p.wrist);
+
+  var open = p.grip;
+  fingerL.position.x = -0.05 - open * 0.14;
+  fingerR.position.x = 0.05 + open * 0.14;
+  tipL.position.x = fingerL.position.x;
+  tipR.position.x = fingerR.position.x;
+
+  // Attach / release crate with gripper during transport phases
+  if (phases[phaseIdx].name === 'GRASP' || 
+      phases[phaseIdx].name === 'LIFT' || 
+      phases[phaseIdx].name === 'TRANSPORT' || 
+      phases[phaseIdx].name === 'LOWER') {
+    var gripWorldPos = new THREE.Vector3();
+    gripperBase.getWorldPosition(gripWorldPos);
+    crate.position.copy(gripWorldPos);
+    crate.position.y -= 0.17;
   }
+}
 
   var holdingCrate = false;
 
