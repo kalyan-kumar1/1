@@ -996,7 +996,19 @@
 
     let W = 0, H = 0, DPR = 1;
     let points = [];
+    let pulses = [];
+    const MAX_POINTS = 130;
     const mouse = { x:-9999, y:-9999, active:false };
+
+    function addPoint(x, y){
+      points.push({
+        x: x, y: y,
+        vx: (Math.random() - 0.5) * 0.16,
+        vy: (Math.random() - 0.5) * 0.16
+      });
+      if(points.length > MAX_POINTS) points.shift();
+      if(!reduceMotion) pulses.push({ x:x, y:y, t0: performance.now() });
+    }
 
     function resize(){
       const oldW = W, oldH = H;
@@ -1043,7 +1055,20 @@
     window.addEventListener('pointerleave', function(){ mouse.active = false; });
     document.addEventListener('mouseleave', function(){ mouse.active = false; });
 
+    // Click / tap on empty space adds a new node to the mesh on the fly.
+    window.addEventListener('click', function(e){
+      if(reduceMotion) return;
+      const interactive = e.target.closest && e.target.closest('a, button, input, textarea, select, .demo-toggle');
+      if(interactive) return;
+      addPoint(e.clientX, e.clientY);
+    });
+
     // ---- Bowyer–Watson Delaunay triangulation ----
+    // Classic computational-geometry algorithm: incrementally inserts each
+    // point, removes triangles whose circumcircle contains it, then
+    // re-triangulates the resulting cavity. The circumcircle test is what
+    // maximizes the minimum angle across the mesh, keeping facets close to
+    // equilateral and avoiding thin, sliver-like triangles.
     function circumcircle(a, b, c){
       const d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
       if(Math.abs(d) < 1e-9) return null;
@@ -1140,6 +1165,25 @@
       const tris = triangulate(points);
       ctx.clearRect(0, 0, W, H);
 
+      // Low-poly aesthetic: a faint per-facet fill, gradient-tinted by
+      // vertical position (cyan near the top fading to gold lower down),
+      // washed in well below text contrast so it reads as texture, not noise.
+      for(const t of tris){
+        const p1 = points[t[0]], p2 = points[t[1]], p3 = points[t[2]];
+        const cy = (p1.y + p2.y + p3.y) / 3;
+        const tt = Math.max(0, Math.min(1, cy / H));
+        const r = Math.round(79 + (203 - 79) * tt);
+        const g = Math.round(209 + (162 - 209) * tt);
+        const b = Math.round(232 + (78 - 232) * tt);
+        ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',0.045)';
+        ctx.beginPath();
+        ctx.moveTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.lineTo(p3.x, p3.y);
+        ctx.closePath();
+        ctx.fill();
+      }
+
       const seen = new Set();
       ctx.lineWidth = 1;
       for(const t of tris){
@@ -1167,6 +1211,20 @@
         ctx.beginPath();
         ctx.arc(p.x, p.y, 1.3, 0, Math.PI*2);
         ctx.fill();
+      }
+
+      // Expanding ring feedback where a node was just added by click/tap.
+      if(pulses.length){
+        const now = performance.now();
+        pulses = pulses.filter(pulse => now - pulse.t0 < 700);
+        for(const pulse of pulses){
+          const age = (now - pulse.t0) / 700;
+          ctx.beginPath();
+          ctx.arc(pulse.x, pulse.y, 4 + age * 24, 0, Math.PI*2);
+          ctx.strokeStyle = 'rgba(79,209,232,' + (0.5 * (1 - age)).toFixed(3) + ')';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        }
       }
 
       if(!reduceMotion) requestAnimationFrame(step);
