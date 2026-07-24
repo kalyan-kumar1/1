@@ -58,12 +58,12 @@
     z-index:0;
   }
 
-  .mesh-bg{
-    position:fixed;
+  .mesh-hero{
+    position:absolute;
     inset:0;
     width:100%;
     height:100%;
-    z-index:0;
+    z-index:-1;
     pointer-events:none;
     display:block;
   }
@@ -603,8 +603,6 @@
 </head>
 <body>
 
-<canvas id="meshCanvas" class="mesh-bg" aria-hidden="true"></canvas>
-
 <header>
   <nav>
     <div class="logo">KK<span>_</span>KALYAN</div>
@@ -619,7 +617,8 @@
   </nav>
 </header>
 
-<section class="hero wrap" id="top" style="border-top:none;">
+<section class="hero wrap" id="top" style="border-top:none; position:relative;">
+  <canvas id="meshCanvas" class="mesh-hero" aria-hidden="true"></canvas>
   <div class="hero-kicker">$ whoami<span class="cursor"></span></div>
   <h1 class="name">KALYAN<br><span class="accent">KUMAR</span></h1>
   <p class="role-line">
@@ -988,9 +987,10 @@
     <a class="btn btn-ghost" href="https://www.linkedin.com/in/kalyankum/">LinkedIn</a>
   </div>
 
-
 <script>
-  // Live Delaunay triangulation / interactive geometric mesh background
+  // Live Delaunay triangulation / interactive geometric mesh, filling the
+  // hero section and sitting behind the title/name — hover to trace the
+  // mesh, click inside the hero to add a new node.
   (function(){
     const canvas = document.getElementById('meshCanvas');
     if(!canvas || !canvas.getContext) return;
@@ -1000,8 +1000,8 @@
     let W = 0, H = 0, DPR = 1;
     let points = [];
     let pulses = [];
-    const MAX_POINTS = 130;
     const mouse = { x:-9999, y:-9999, active:false };
+    const MAX_POINTS = 90;
 
     function addPoint(x, y){
       points.push({
@@ -1014,10 +1014,11 @@
     }
 
     function resize(){
+      const rect = canvas.getBoundingClientRect();
       const oldW = W, oldH = H;
       DPR = Math.min(window.devicePixelRatio || 1, 2);
-      W = window.innerWidth;
-      H = window.innerHeight;
+      W = rect.width;
+      H = rect.height;
       canvas.width = Math.round(W * DPR);
       canvas.height = Math.round(H * DPR);
       canvas.style.width = W + 'px';
@@ -1049,21 +1050,29 @@
     let resizeTimer;
     window.addEventListener('resize', function(){
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(resize, 120);
+      resizeTimer = setTimeout(function(){ resize(); }, 120);
     });
 
+    // Mouse coordinates are converted into the canvas's own local space so
+    // the ripple/attraction effect only engages near the corner box.
     window.addEventListener('pointermove', function(e){
-      mouse.x = e.clientX; mouse.y = e.clientY; mouse.active = true;
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = e.clientX - rect.left;
+      mouse.y = e.clientY - rect.top;
+      mouse.active = e.clientX >= rect.left - 60 && e.clientX <= rect.right + 60 &&
+                      e.clientY >= rect.top - 60 && e.clientY <= rect.bottom + 60;
     }, { passive:true });
     window.addEventListener('pointerleave', function(){ mouse.active = false; });
     document.addEventListener('mouseleave', function(){ mouse.active = false; });
 
-    // Click / tap on empty space adds a new node to the mesh on the fly.
+    // Click/tap inside the corner box adds a new node to the mesh on the fly.
     window.addEventListener('click', function(e){
       if(reduceMotion) return;
-      const interactive = e.target.closest && e.target.closest('a, button, input, textarea, select, .demo-toggle');
-      if(interactive) return;
-      addPoint(e.clientX, e.clientY);
+      const rect = canvas.getBoundingClientRect();
+      const inside = e.clientX >= rect.left && e.clientX <= rect.right &&
+                     e.clientY >= rect.top && e.clientY <= rect.bottom;
+      if(!inside) return;
+      addPoint(e.clientX - rect.left, e.clientY - rect.top);
     });
 
     // ---- Bowyer–Watson Delaunay triangulation ----
