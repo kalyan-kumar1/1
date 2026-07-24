@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive View — Live Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0F14;
+    --panel:#111823;
+    --panel-2:#0E141D;
+    --ink:#E7EDF3;
+    --ink-dim:#8B98A9;
+    --ink-faint:#5A6576;
+    --signal:#4FD1C5;
+    --signal-dim:#2C6B66;
+    --threat:#FF6B4A;
+    --threat-dim:#6b3324;
+    --line:#1E2733;
+    --line-soft:#161E29;
+    --display:'Space Grotesk', sans-serif;
+    --body:'Inter', sans-serif;
+    --mono:'JetBrains Mono', monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--body);
+    min-height:100vh;
+    display:flex;align-items:center;justify-content:center;
+    padding:32px 16px;
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:"";
+    position:fixed;inset:0;
+    background-image:
+      linear-gradient(var(--line-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+    background-size:48px 48px;
+    opacity:.3;
+    mask-image:radial-gradient(ellipse 70% 60% at 50% 30%, black 10%, transparent 75%);
+    pointer-events:none;
+  }
+  :focus-visible{outline:2px solid var(--signal);outline-offset:2px;border-radius:4px;}
+
+  .demo{
+    width:100%;max-width:420px;
+    position:relative;z-index:1;
+  }
+
+  .demo-label{
+    text-align:center;
+    font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--signal);
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    margin-bottom:14px;
+  }
+  .demo-label::before{
+    content:"";width:6px;height:6px;border-radius:50%;background:var(--signal);
+    box-shadow:0 0 0 4px rgba(79,209,197,.15);
+  }
+
+  .card{
+    background:linear-gradient(180deg,var(--panel),var(--panel-2));
+    border:1px solid var(--line);
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:0 30px 70px -35px rgba(0,0,0,.75);
+  }
+  .card-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 16px;
+    border-bottom:1px solid var(--line);
+    font-family:var(--mono);font-size:11px;color:var(--ink-faint);
+  }
+  .dots{display:flex;gap:5px;}
+  .dots span{width:7px;height:7px;border-radius:50%;background:var(--line);}
+
+  .lanes{padding:6px 8px;}
+  .lane{
+    display:grid;grid-template-columns:64px 1fr 58px;
+    align-items:center;gap:10px;
+    padding:9px 8px;
+    border-radius:8px;
+    cursor:pointer;
+    border:1px solid transparent;
+    transition:background .15s ease, border-color .15s ease;
+  }
+  .lane:hover{background:rgba(255,255,255,.03);}
+  .lane.selected{background:rgba(79,209,197,.06);border-color:var(--signal-dim);}
+  .lane.is-anomaly{background:rgba(255,107,74,.06);}
+  .lane.is-anomaly.selected{border-color:var(--threat-dim);}
+  .lane-id{font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);}
+  .lane.is-anomaly .lane-id{color:var(--threat);}
+  .lane-track{height:26px;}
+  .lane-track svg{width:100%;height:100%;overflow:visible;display:block;}
+  path.trace{stroke:var(--signal-dim);stroke-width:1.5;fill:none;}
+  .lane.is-anomaly path.trace{stroke:var(--threat);stroke-dasharray:5 4;animation:dash 2.2s linear infinite;}
+  @keyframes dash{to{stroke-dashoffset:-180;}}
+  .lane-status{font-family:var(--mono);font-size:9.5px;text-align:right;color:var(--signal-dim);}
+  .lane.is-anomaly .lane-status{color:var(--threat);}
+
+  .detail{
+    border-top:1px solid var(--line);
+    padding:16px;
+    display:none;
+  }
+  .detail.open{display:block;}
+  .detail-badge{
+    display:inline-flex;align-items:center;gap:6px;
+    font-family:var(--mono);font-size:10px;
+    padding:3px 8px;border-radius:5px;
+    margin-bottom:10px;
+  }
+  .detail-badge.ok{color:var(--signal);background:rgba(79,209,197,.1);border:1px solid rgba(79,209,197,.3);}
+  .detail-badge.flag{color:var(--threat);background:rgba(255,107,74,.12);border:1px solid rgba(255,107,74,.35);}
+  .detail h4{font-family:var(--display);font-size:15px;font-weight:600;margin-bottom:6px;}
+  .detail p{font-size:12.5px;color:var(--ink-dim);line-height:1.55;margin-bottom:14px;}
+  .detail-meta{
+    display:grid;grid-template-columns:1fr 1fr;gap:8px;
+    margin-bottom:14px;
+  }
+  .detail-meta div{
+    font-family:var(--mono);font-size:10px;color:var(--ink-faint);
+    background:var(--bg);border:1px solid var(--line);border-radius:6px;
+    padding:8px 10px;
+  }
+  .detail-meta b{display:block;color:var(--ink-dim);font-size:12.5px;font-weight:500;margin-top:3px;}
+
+  .actions{display:flex;gap:8px;}
+  .actions button{
+    font-family:var(--body);font-weight:600;font-size:12.5px;
+    padding:9px 14px;border-radius:8px;border:1px solid var(--line);
+    background:transparent;color:var(--ink-dim);cursor:pointer;
+    transition:transform .12s ease, border-color .2s ease, background .2s ease, color .2s ease;
+  }
+  .actions button:hover{transform:translateY(-1px);border-color:var(--ink-faint);color:var(--ink);}
+  .actions button.primary{background:var(--threat);border-color:var(--threat);color:#2A0D05;}
+  .actions button.primary:hover{background:#ff8367;}
+  .actions button:disabled{opacity:.5;cursor:default;transform:none;}
+  .resolved-note{
+    font-family:var(--mono);font-size:11px;color:var(--signal);
+    display:flex;align-items:center;gap:6px;
+  }
+  .resolved-note::before{content:"✓";}
+
+  .card-foot{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:11px 16px;border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);
+  }
+  .card-foot b{color:var(--threat);font-weight:500;}
+
+  .replay{
+    display:block;margin:16px auto 0;
+    font-family:var(--mono);font-size:11px;color:var(--ink-faint);
+    background:transparent;border:1px solid var(--line);border-radius:999px;
+    padding:7px 16px;cursor:pointer;transition:border-color .2s ease,color .2s ease;
+  }
+  .replay:hover{border-color:var(--ink-faint);color:var(--ink);}
+
+  .integrations{margin-top:20px;}
+  .integrations-label{
+    text-align:center;
+    font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--ink-faint);margin-bottom:10px;
+  }
+  .chip-row{display:flex;flex-wrap:wrap;justify-content:center;gap:7px;}
+  .chip{
+    display:flex;align-items:center;gap:6px;
+    font-family:var(--mono);font-size:10.5px;color:var(--ink-dim);
+    border:1px solid var(--line);border-radius:999px;
+    padding:5px 10px 5px 8px;
+    transition:border-color .2s ease,color .2s ease;
+  }
+  .chip:hover{border-color:var(--ink-faint);color:var(--ink);}
+  .chip svg{width:12px;height:12px;flex-shrink:0;stroke:var(--signal);opacity:.9;}
+
+  .roadmap{margin-top:22px;}
+  .roadmap-card{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px 18px 18px;
+  }
+  .roadmap-head{margin-bottom:14px;}
+  .roadmap-head .eyebrow{
+    font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--signal);display:flex;align-items:center;gap:6px;margin-bottom:8px;
+  }
+  .roadmap-head .eyebrow::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--signal);}
+  .roadmap-head h4{font-family:var(--display);font-size:13.5px;font-weight:600;line-height:1.4;}
+  .roadmap-head p{font-size:11.5px;color:var(--ink-faint);margin-top:6px;line-height:1.5;}
+
+  .timeline{list-style:none;}
+  .t-step{
+    display:grid;grid-template-columns:44px 1fr;
+    gap:10px;
+    position:relative;
+    padding-bottom:14px;
+  }
+  .t-step:last-child{padding-bottom:0;}
+  .t-step::before{
+    content:"";position:absolute;left:20px;top:20px;bottom:-2px;width:1px;
+    background:var(--line);
+  }
+  .t-step:last-child::before{display:none;}
+  .t-q{
+    font-family:var(--mono);font-size:9px;color:var(--ink-faint);
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+  }
+  .t-dot{width:9px;height:9px;border-radius:50%;background:var(--panel);border:1.5px solid var(--signal-dim);z-index:1;}
+  .t-step.now .t-dot{background:var(--signal);border-color:var(--signal);box-shadow:0 0 0 4px rgba(79,209,197,.14);}
+  .t-body h5{font-family:var(--body);font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:3px;}
+  .t-body p{font-size:11px;color:var(--ink-dim);line-height:1.5;}
+  .t-tag{
+    display:inline-block;margin-top:5px;
+    font-family:var(--mono);font-size:8.5px;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--signal);background:rgba(79,209,197,.09);border:1px solid rgba(79,209,197,.25);
+    padding:1.5px 6px;border-radius:4px;
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .lane.is-anomaly path.trace{animation:none;}
+    *{transition:none !important;}
+  }
+
+  .view-tabs{
+    display:flex;gap:6px;justify-content:center;flex-wrap:wrap;
+    margin-bottom:16px;
+  }
+  .view-tabs button{
+    font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+    padding:7px 12px;border-radius:999px;
+    border:1px solid var(--line);background:transparent;color:var(--ink-faint);
+    cursor:pointer;transition:border-color .2s ease,color .2s ease,background .2s ease;
+  }
+  .view-tabs button:hover{color:var(--ink);border-color:var(--ink-faint);}
+  .view-tabs button.active{background:var(--signal);border-color:var(--signal);color:#04141A;font-weight:600;}
+
+  .view-panel{display:none;}
+  .view-panel.active{display:block;}
+</style>
+</head>
+<body>
+
+<div class="demo">
+  <div class="demo-label">Interactive View · live</div>
+
+  <div class="view-tabs" id="viewTabs">
+    <button class="active" data-view="identity" type="button">Identity (UEBA)</button>
+    <button data-view="ndr" type="button">Network (NDR)</button>
+    <button data-view="edr" type="button">Endpoint (EDR)</button>
+    <button data-view="mdr" type="button">Incidents (MDR)</button>
+  </div>
+
+  <div class="view-panel active" id="view-identity">
+    <div class="card">
+      <div class="card-head">
+        <span>behavior-monitor</span>
+        <div class="dots"><span></span><span></span><span></span></div>
+      </div>
+
+      <div class="lanes" id="lanes-identity"></div>
+
+      <div class="detail" id="detail-identity"></div>
+
+      <div class="card-foot">
+        <span>5 identities monitored</span>
+        <span><b id="flagCount-identity">1</b> deviation from baseline</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="view-panel" id="view-ndr">
+    <div class="card">
+      <div class="card-head">
+        <span>network-flow-monitor (NDR)</span>
+        <div class="dots"><span></span><span></span><span></span></div>
+      </div>
+
+      <div class="lanes" id="lanes-ndr"></div>
+
+      <div class="detail" id="detail-ndr"></div>
+
+      <div class="card-foot">
+        <span>5 flows monitored</span>
+        <span><b id="flagCount-ndr">1</b> flow flagged for anomalous egress</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="view-panel" id="view-edr">
+    <div class="card">
+      <div class="card-head">
+        <span>endpoint-agent-monitor (EDR)</span>
+        <div class="dots"><span></span><span></span><span></span></div>
+      </div>
+
+      <div class="lanes" id="lanes-edr"></div>
+
+      <div class="detail" id="detail-edr"></div>
+
+      <div class="card-foot">
+        <span>5 endpoints monitored</span>
+        <span><b id="flagCount-edr">1</b> endpoint isolated</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="view-panel" id="view-mdr">
+    <div class="card">
+      <div class="card-head">
+        <span>incident-response (MDR)</span>
+        <div class="dots"><span></span><span></span><span></span></div>
+      </div>
+
+      <div class="lanes" id="lanes-mdr"></div>
+
+      <div class="detail" id="detail-mdr"></div>
+
+      <div class="card-foot">
+        <span>5 incidents this week</span>
+        <span><b id="flagCount-mdr">2</b> requiring neutralization</span>
+      </div>
+    </div>
+  </div>
+
+  <button class="replay" id="replay">Reset demo</button>
+
+  <div class="integrations">
+    <div class="integrations-label">Embeds into</div>
+    <div class="chip-row">
+      <span class="chip">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="7.5" cy="6.5" r="2.5" stroke-width="1.4"/><path d="M3 16c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4" stroke-width="1.4" stroke-linecap="round"/><path d="M13 9c1.7 0 3 1 3 3.5" stroke-width="1.4" stroke-linecap="round"/></svg>
+        HRIS
+      </span>
+      <span class="chip">
+        <svg viewBox="0 0 20 20" fill="none"><rect x="4" y="9" width="12" height="7" rx="1.4" stroke-width="1.4"/><path d="M6.5 9V6.5a3.5 3.5 0 0 1 7 0V9" stroke-width="1.4" stroke-linecap="round"/></svg>
+        Identity
+      </span>
+      <span class="chip">
+        <svg viewBox="0 0 20 20" fill="none"><rect x="3" y="4" width="14" height="9" rx="1.2" stroke-width="1.4"/><path d="M7 16.5h6M10 13v3.5" stroke-width="1.4" stroke-linecap="round"/></svg>
+        ITSM
+      </span>
+      <span class="chip">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M4 5.5h9a2 2 0 0 1 2 2V12a2 2 0 0 1-2 2H8l-3 2.5V14H4a2 2 0 0 1-2-2V7.5a2 2 0 0 1 2-2Z" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        Collaboration
+      </span>
+      <span class="chip">
+        <svg viewBox="0 0 20 20" fill="none"><rect x="3.5" y="4" width="13" height="9" rx="1.2" stroke-width="1.4"/><path d="M7.5 16.5h5M10 13v3.5" stroke-width="1.4" stroke-linecap="round"/><circle cx="10" cy="8.3" r="1.6" stroke-width="1.4"/></svg>
+        Endpoint (EDR)
+      </span>
+      <span class="chip">
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="6.2" stroke-width="1.4"/><path d="M10 3.8v12.4M3.8 10h12.4" stroke-width="1.4"/><path d="M6.3 6.3l7.4 7.4M13.7 6.3l-7.4 7.4" stroke-width="1.2" opacity=".55"/></svg>
+        Network (NDR)
+      </span>
+      <span class="chip">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M10 2.5 16 5v4.5c0 4-2.6 6.6-6 8-3.4-1.4-6-4-6-8V5l6-2.5Z" stroke-width="1.4" stroke-linejoin="round"/><path d="M7.2 10.2l1.9 1.9 3.7-3.9" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Incident Response (MDR)
+      </span>
+      <span class="chip">
+        <svg viewBox="0 0 20 20" fill="none"><rect x="3.5" y="3.5" width="13" height="13" rx="1.4" stroke-width="1.4"/><path d="M6.5 7.5h7M6.5 10h7M6.5 12.5h4.5" stroke-width="1.4" stroke-linecap="round"/></svg>
+        Google Cloud NLP
+      </span>
+      <span class="chip">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M10 2.5 16 5v4.5c0 4-2.6 6.6-6 8-3.4-1.4-6-4-6-8V5l6-2.5Z" stroke-width="1.4" stroke-linejoin="round"/><path d="M7.5 10l1.8 1.8L13 8" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        SIEM
+      </span>
+      <span class="chip">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M4 7.5 6 4h8l2 3.5" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><rect x="3.5" y="7.5" width="13" height="8.5" rx="1.2" stroke-width="1.4"/><path d="M3.5 11h13" stroke-width="1.4"/></svg>
+        Ticketing
+      </span>
+    </div>
+  </div>
+
+  <div class="roadmap">
+    <div class="roadmap-card">
+      <div class="roadmap-head">
+        <span class="eyebrow">Strategy &amp; roadmap</span>
+        <h4>Bringing multimodal LLM review into Google Workspace</h4>
+        <p>Reasoning extends from text logs to screen, voice, and document context — surfaced inline in Gmail, Docs, and Meet.</p>
+      </div>
+      <ul class="timeline">
+        <li class="t-step now">
+          <div class="t-q"><span>Q1</span><span class="t-dot"></span></div>
+          <div class="t-body">
+            <h5>Multimodal ingestion</h5>
+            <p>Add document and screen-context signals alongside existing activity, NDR, EDR, and MDR incident telemetry.</p>
+            <span class="t-tag">In progress</span>
+          </div>
+        </li>
+        <li class="t-step">
+          <div class="t-q"><span>Q2</span><span class="t-dot"></span></div>
+          <div class="t-body">
+            <h5>Sensitive data classification</h5>
+            <p>Apply Google Cloud Natural Language to detect PII, financial, and regulated data spans inside flagged content, strengthening DLP coverage and compliance posture across every panel.</p>
+          </div>
+        </li>
+        <li class="t-step">
+          <div class="t-q"><span>Q3</span><span class="t-dot"></span></div>
+          <div class="t-body">
+            <h5>Gmail &amp; Docs embedding</h5>
+            <p>Interactive View surfaces inline as a side panel in Gmail and Google Docs.</p>
+          </div>
+        </li>
+        <li class="t-step">
+          <div class="t-q"><span>Q4</span><span class="t-dot"></span></div>
+          <div class="t-body">
+            <h5>Meet &amp; Chat, live</h5>
+            <p>Real-time voice and screen-share review during Google Meet and Chat sessions.</p>
+          </div>
+        </li>
+        <li class="t-step">
+          <div class="t-q"><span>Q5</span><span class="t-dot"></span></div>
+          <div class="t-body">
+            <h5>Org-wide rollout</h5>
+            <p>Scale across Workspace admin console with policy controls per department.</p>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+  const svgTrace = (anomaly) => anomaly
+    ? '<svg viewBox="0 0 240 26" preserveAspectRatio="none"><path class="trace" d="M0 14 L60 14 L60 13 L100 13 L112 2 L124 24 L136 13 L180 13 L180 14 L240 14"/></svg>'
+    : '<svg viewBox="0 0 240 26" preserveAspectRatio="none"><path class="trace" d="M0 13 Q 20 8 40 13 T 80 13 T 120 13 T 160 13 T 200 13 T 240 13"/></svg>';
+
+  // ---- Panel datasets ----------------------------------------------------
+
+  const identityItems = [
+    {
+      id: 'u_2291', anomaly: false,
+      title: 'Nominal activity',
+      desc: "Access hours, systems touched, and data volume all sit within this person's established baseline.",
+      meta: [['Hours','9:10–17:40'], ['Systems','3, all familiar']]
+    },
+    {
+      id: 'u_4408', anomaly: false,
+      title: 'Nominal activity',
+      desc: 'Minor variance in login time, well inside normal range for this identity.',
+      meta: [['Hours','8:45–17:20'], ['Systems','2, all familiar']]
+    },
+    {
+      id: 'u_1187', anomaly: true,
+      title: 'Access pattern outside baseline',
+      desc: "Off-hours access to 3 systems this identity hasn't touched in the last 90 days, plus a data pull well above their personal norm.",
+      meta: [['Hours','1:15am–2:40am'], ['Systems','+3 unfamiliar']]
+    },
+    {
+      id: 'u_0952', anomaly: false,
+      title: 'Nominal activity',
+      desc: "Behavior consistent with the last 90 days of this identity's history.",
+      meta: [['Hours','9:00–17:30'], ['Systems','4, all familiar']]
+    },
+    {
+      id: 'u_3320', anomaly: false,
+      title: 'Nominal activity',
+      desc: 'No deviation detected against personal or peer-group baseline.',
+      meta: [['Hours','8:55–17:15'], ['Systems','3, all familiar']]
+    }
+  ];
+
+  const ndrItems = [
+    {
+      id: 'flow_1140A', anomaly: false,
+      title: 'Nominal network flow',
+      desc: 'Standard TLS session to a known internal service, consistent with historical traffic for this subnet.',
+      meta: [['Protocol','TLS 1.3'], ['Volume','12.4 MB']]
+    },
+    {
+      id: 'flow_2093B', anomaly: false,
+      title: 'Nominal network flow',
+      desc: 'Routine API traffic to an allow-listed SaaS endpoint.',
+      meta: [['Protocol','HTTPS'], ['Volume','3.1 MB']]
+    },
+    {
+      id: 'flow_5561C', anomaly: true,
+      title: 'Anomalous egress detected',
+      desc: 'Large outbound transfer to an external IP with no prior history, initiated outside business hours from a workstation subnet.',
+      meta: [['Protocol','HTTPS · 443'], ['Volume','4.8 GB ↑']]
+    },
+    {
+      id: 'flow_3308D', anomaly: false,
+      title: 'Nominal network flow',
+      desc: 'DNS resolution pattern consistent with this segment\u2019s baseline.',
+      meta: [['Protocol','DNS'], ['Volume','48 KB']]
+    },
+    {
+      id: 'flow_7742E', anomaly: false,
+      title: 'Nominal network flow',
+      desc: 'Encrypted backup sync to an approved cloud storage provider.',
+      meta: [['Protocol','TLS 1.3'], ['Volume','620 MB']]
+    }
+  ];
+
+  const edrItems = [
+    {
+      id: 'ENDPT-A21F', anomaly: false,
+      title: 'Endpoint healthy',
+      desc: 'Agent reporting a normal process tree; no unsigned binaries executed.',
+      meta: [['OS','macOS 14.5'], ['Check-in','2 min ago']]
+    },
+    {
+      id: 'ENDPT-C88K', anomaly: false,
+      title: 'Endpoint healthy',
+      desc: 'No deviation from baseline process behavior.',
+      meta: [['OS','Windows 11'], ['Check-in','4 min ago']]
+    },
+    {
+      id: 'ENDPT-F02M', anomaly: true,
+      title: 'Suspicious process chain',
+      desc: 'Unsigned binary spawned a shell process and attempted registry persistence \u2014 endpoint auto-isolated from the network pending review.',
+      meta: [['OS','Windows 11'], ['Check-in','Just now']]
+    },
+    {
+      id: 'ENDPT-J55P', anomaly: false,
+      title: 'Endpoint healthy',
+      desc: 'Standard patch cadence, no flagged behavior.',
+      meta: [['OS','ChromeOS'], ['Check-in','1 min ago']]
+    },
+    {
+      id: 'ENDPT-Q10T', anomaly: false,
+      title: 'Endpoint healthy',
+      desc: "Consistent with this device's 90-day behavioral baseline.",
+      meta: [['OS','macOS 14.5'], ['Check-in','6 min ago']]
+    }
+  ];
+
+  const mdrItems = [
+    {
+      id: 'INC-3312', anomaly: true,
+      title: 'Lateral movement attempt',
+      desc: 'A single set of credentials authenticated across 3 previously unvisited hosts within an 8-minute window \u2014 correlated by the MDR platform with the flagged NDR egress on flow_5561C.',
+      meta: [['Severity','Critical'], ['Sources','Identity + NDR']]
+    },
+    {
+      id: 'INC-3301', anomaly: true,
+      title: 'Credential misuse \u2192 exfiltration',
+      desc: 'Off-hours identity anomaly linked to a large outbound transfer; Google Cloud NLP flagged regulated PII within the exfiltrated payload, escalating this to a compliance-reportable incident while MDR analysts revoke ENDPT-F02M network access.',
+      meta: [['Severity','Critical'], ['Sources','Identity + NDR + EDR + NLP']]
+    },
+    {
+      id: 'INC-3299', anomaly: false,
+      title: 'Malware execution \u2014 neutralized',
+      desc: 'Unsigned binary on ENDPT-F02M was isolated and the process chain terminated by the MDR team before persistence completed; no lateral spread observed.',
+      meta: [['Severity','High'], ['Sources','EDR']]
+    },
+    {
+      id: 'INC-3287', anomaly: false,
+      title: 'Suspicious login \u2014 contained',
+      desc: 'Login from an unrecognized device triggered step-up authentication; the session was revoked and the identity re-verified.',
+      meta: [['Severity','Medium'], ['Sources','Identity']]
+    },
+    {
+      id: 'INC-3270', anomaly: false,
+      title: 'Phishing report \u2014 closed',
+      desc: 'User-reported email confirmed malicious; sender blocked org-wide by the MDR platform, no engagement detected.',
+      meta: [['Severity','Low'], ['Sources','Email + SIEM']]
+    }
+  ];
+
+  // ---- Generic monitor factory -------------------------------------------
+  // Powers the Identity (UEBA), Network (NDR), and Endpoint (EDR) panels
+  // from the same lane / detail / actions interaction pattern.
+
+  function createMonitor(cfg){
+    let selected = null;
+    let resolution = {};
+
+    const lanesEl = document.getElementById(cfg.lanesId);
+    const detailEl = document.getElementById(cfg.detailId);
+    const flagCountEl = document.getElementById(cfg.flagCountId);
+
+    function render(){
+      lanesEl.innerHTML = cfg.items.map(u => `
+        <div class="lane ${u.anomaly ? 'is-anomaly' : ''} ${selected === u.id ? 'selected' : ''}" data-id="${u.id}" tabindex="0" role="button" aria-expanded="${selected === u.id}">
+          <span class="lane-id">${u.id}</span>
+          <span class="lane-track">${svgTrace(u.anomaly)}</span>
+          <span class="lane-status">${u.anomaly ? (resolution[u.id] ? resolution[u.id] : 'flagged') : 'nominal'}</span>
+        </div>
+      `).join('');
+
+      const openFlags = cfg.items.filter(u => u.anomaly && !resolution[u.id]).length;
+      if (flagCountEl) flagCountEl.textContent = openFlags;
+
+      if (selected){
+        const u = cfg.items.find(x => x.id === selected);
+        const status = resolution[u.id];
+        detailEl.classList.add('open');
+        detailEl.innerHTML = `
+          <span class="detail-badge ${u.anomaly ? 'flag' : 'ok'}">${u.anomaly ? cfg.flagBadge : cfg.okBadge}</span>
+          <h4>${u.title}</h4>
+          <p>${u.desc}</p>
+          <div class="detail-meta">
+            <div>${u.meta[0][0]}<b>${u.meta[0][1]}</b></div>
+            <div>${u.meta[1][0]}<b>${u.meta[1][1]}</b></div>
+          </div>
+          ${
+            u.anomaly
+              ? (status
+                  ? `<div class="resolved-note">Marked as ${status}</div>`
+                  : `<div class="actions">
+                       <button class="primary" data-action="primary">${cfg.primaryLabel}</button>
+                       <button data-action="dismiss">${cfg.dismissLabel}</button>
+                     </div>`)
+              : `<div class="resolved-note">No action needed</div>`
+          }
+        `;
+      } else {
+        detailEl.classList.remove('open');
+        detailEl.innerHTML = '';
+      }
+    }
+
+    lanesEl.addEventListener('click', (e) => {
+      const lane = e.target.closest('.lane');
+      if (!lane) return;
+      const id = lane.dataset.id;
+      selected = selected === id ? null : id;
+      render();
+    });
+
+    lanesEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' '){
+        const lane = e.target.closest('.lane');
+        if (!lane) return;
+        e.preventDefault();
+        const id = lane.dataset.id;
+        selected = selected === id ? null : id;
+        render();
+      }
+    });
+
+    detailEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn || !selected) return;
+      resolution[selected] = btn.dataset.action === 'primary' ? cfg.primaryStatus : cfg.dismissStatus;
+      render();
+    });
+
+    render();
+
+    return {
+      reset(){ selected = null; resolution = {}; render(); }
+    };
+  }
+
+  const monitors = {
+    identity: createMonitor({
+      items: identityItems,
+      lanesId: 'lanes-identity', detailId: 'detail-identity', flagCountId: 'flagCount-identity',
+      flagBadge: 'Behavioral deviation', okBadge: 'Within baseline',
+      primaryLabel: 'Escalate', dismissLabel: 'Dismiss',
+      primaryStatus: 'escalated', dismissStatus: 'dismissed'
+    }),
+    ndr: createMonitor({
+      items: ndrItems,
+      lanesId: 'lanes-ndr', detailId: 'detail-ndr', flagCountId: 'flagCount-ndr',
+      flagBadge: 'Anomalous egress', okBadge: 'Within baseline',
+      primaryLabel: 'Escalate', dismissLabel: 'Dismiss',
+      primaryStatus: 'escalated', dismissStatus: 'dismissed'
+    }),
+    edr: createMonitor({
+      items: edrItems,
+      lanesId: 'lanes-edr', detailId: 'detail-edr', flagCountId: 'flagCount-edr',
+      flagBadge: 'Isolated \u2014 active threat', okBadge: 'Healthy',
+      primaryLabel: 'Quarantine', dismissLabel: 'Allow',
+      primaryStatus: 'quarantined', dismissStatus: 'allowed'
+    }),
+    mdr: createMonitor({
+      items: mdrItems,
+      lanesId: 'lanes-mdr', detailId: 'detail-mdr', flagCountId: 'flagCount-mdr',
+      flagBadge: 'Active incident', okBadge: 'Resolved',
+      primaryLabel: 'Neutralize', dismissLabel: 'Contain',
+      primaryStatus: 'neutralized', dismissStatus: 'contained'
+    })
+  };
+
+  // ---- Tab switching -------------------------------------------------
+
+  let currentView = 'identity';
+  const tabsEl = document.getElementById('viewTabs');
+
+  tabsEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-view]');
+    if (!btn) return;
+    const view = btn.dataset.view;
+    if (view === currentView) return;
+    currentView = view;
+
+    tabsEl.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+    document.querySelectorAll('.view-panel').forEach(p => p.classList.toggle('active', p.id === `view-${view}`));
+  });
+
+  document.getElementById('replay').addEventListener('click', () => {
+    monitors[currentView].reset();
+  });
+</script>
+
+</body>
+</html>

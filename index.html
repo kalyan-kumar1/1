@@ -58,6 +58,16 @@
     z-index:0;
   }
 
+  .mesh-bg{
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100%;
+    z-index:0;
+    pointer-events:none;
+    display:block;
+  }
+
   a{color:inherit;text-decoration:none;}
 
   ::selection{background:var(--cyan-dim); color:var(--text);}
@@ -593,6 +603,8 @@
 </head>
 <body>
 
+<canvas id="meshCanvas" class="mesh-bg" aria-hidden="true"></canvas>
+
 <header>
   <nav>
     <div class="logo">KK<span>_</span>KALYAN</div>
@@ -733,6 +745,10 @@
         <li>Advised on enterprise data governance, compliance frameworks, and encryption standards (Common Criteria EAL 4+).</li>
         <li>Drove cross-functional alignment across engineering, legal, and product teams to ship compliant AI features at scale.</li>
       </ul>
+      <button class="demo-toggle" type="button" data-target="demo-google">▸ Research Interactive View</button>
+      <div class="demo-frame" id="demo-google">
+        <iframe data-src="Google.html" title="Google / AI Implementation Strategy" loading="lazy"></iframe>
+      </div>
     </div>
 
     <div class="node cyan reveal">
@@ -745,6 +761,10 @@
         <li>Managed global IT infrastructure across France, USA, China, India, Switzerland, and Morocco.</li>
         <li>Led migration of physical and virtual server environments, reducing operational overhead.</li>
       </ul>
+      <button class="demo-toggle" type="button" data-target="demo-fortinet">▸ Research Interactive View</button>
+      <div class="demo-frame" id="demo-fortinet">
+        <iframe data-src="Fortinet.html" title="Fortinet / Global Infrastructure Map" loading="lazy"></iframe>
+      </div>
     </div>
 
     <div class="node cyan reveal">
@@ -967,6 +987,194 @@
 
 
 <script>
+  // Live Delaunay triangulation / interactive geometric mesh background
+  (function(){
+    const canvas = document.getElementById('meshCanvas');
+    if(!canvas || !canvas.getContext) return;
+    const ctx = canvas.getContext('2d');
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    let W = 0, H = 0, DPR = 1;
+    let points = [];
+    const mouse = { x:-9999, y:-9999, active:false };
+
+    function resize(){
+      const oldW = W, oldH = H;
+      DPR = Math.min(window.devicePixelRatio || 1, 2);
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = Math.round(W * DPR);
+      canvas.height = Math.round(H * DPR);
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      if(oldW && oldH && points.length){
+        const sx = W / oldW, sy = H / oldH;
+        points.forEach(p => { p.x *= sx; p.y *= sy; });
+      }
+    }
+
+    function seed(){
+      const area = W * H;
+      const count = Math.max(26, Math.min(72, Math.round(area / 17000)));
+      points = [];
+      for(let i = 0; i < count; i++){
+        points.push({
+          x: Math.random() * W,
+          y: Math.random() * H,
+          vx: (Math.random() - 0.5) * 0.16,
+          vy: (Math.random() - 0.5) * 0.16
+        });
+      }
+    }
+
+    resize();
+    seed();
+
+    let resizeTimer;
+    window.addEventListener('resize', function(){
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(resize, 120);
+    });
+
+    window.addEventListener('pointermove', function(e){
+      mouse.x = e.clientX; mouse.y = e.clientY; mouse.active = true;
+    }, { passive:true });
+    window.addEventListener('pointerleave', function(){ mouse.active = false; });
+    document.addEventListener('mouseleave', function(){ mouse.active = false; });
+
+    // ---- Bowyer–Watson Delaunay triangulation ----
+    function circumcircle(a, b, c){
+      const d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
+      if(Math.abs(d) < 1e-9) return null;
+      const aa = a.x*a.x + a.y*a.y, bb = b.x*b.x + b.y*b.y, cc = c.x*c.x + c.y*c.y;
+      const ux = (aa*(b.y-c.y) + bb*(c.y-a.y) + cc*(a.y-b.y)) / d;
+      const uy = (aa*(c.x-b.x) + bb*(a.x-c.x) + cc*(b.x-a.x)) / d;
+      const r2 = (a.x-ux)*(a.x-ux) + (a.y-uy)*(a.y-uy);
+      return { x:ux, y:uy, r2:r2 };
+    }
+
+    function triangulate(pts){
+      const n = pts.length;
+      if(n < 3) return [];
+
+      let minX=Infinity, minY=Infinity, maxX=-Infinity, maxY=-Infinity;
+      for(let i=0;i<n;i++){
+        const p = pts[i];
+        if(p.x<minX) minX=p.x; if(p.y<minY) minY=p.y;
+        if(p.x>maxX) maxX=p.x; if(p.y>maxY) maxY=p.y;
+      }
+      const dmax = Math.max(maxX-minX, maxY-minY, 1) * 20;
+      const midx = (minX+maxX)/2, midy = (minY+maxY)/2;
+
+      const work = pts.slice();
+      work.push(
+        { x:midx-dmax, y:midy-dmax },
+        { x:midx,      y:midy+dmax },
+        { x:midx+dmax, y:midy-dmax }
+      );
+      const sA = n, sB = n+1, sC = n+2;
+
+      let tris = [[sA, sB, sC]];
+
+      for(let i=0; i<n; i++){
+        const p = work[i];
+        const bad = [];
+        for(let j=0;j<tris.length;j++){
+          const t = tris[j];
+          const cc = circumcircle(work[t[0]], work[t[1]], work[t[2]]);
+          if(cc){
+            const dx = p.x - cc.x, dy = p.y - cc.y;
+            if(dx*dx + dy*dy < cc.r2) bad.push(t);
+          }
+        }
+
+        const edgeCount = new Map();
+        for(let k=0;k<bad.length;k++){
+          const t = bad[k];
+          const edges = [[t[0],t[1]],[t[1],t[2]],[t[2],t[0]]];
+          for(const e of edges){
+            const key = e[0]<e[1] ? e[0]+'_'+e[1] : e[1]+'_'+e[0];
+            edgeCount.set(key, (edgeCount.get(key) || 0) + 1);
+          }
+        }
+
+        tris = tris.filter(t => bad.indexOf(t) === -1);
+
+        for(let k=0;k<bad.length;k++){
+          const t = bad[k];
+          const edges = [[t[0],t[1]],[t[1],t[2]],[t[2],t[0]]];
+          for(const e of edges){
+            const key = e[0]<e[1] ? e[0]+'_'+e[1] : e[1]+'_'+e[0];
+            if(edgeCount.get(key) === 1) tris.push([e[0], e[1], i]);
+          }
+        }
+      }
+
+      return tris.filter(t => t[0]<n && t[1]<n && t[2]<n);
+    }
+
+    function step(){
+      if(!reduceMotion){
+        for(const p of points){
+          p.x += p.vx; p.y += p.vy;
+          if(p.x < 0 || p.x > W) p.vx *= -1;
+          if(p.y < 0 || p.y > H) p.vy *= -1;
+          p.x = Math.max(0, Math.min(W, p.x));
+          p.y = Math.max(0, Math.min(H, p.y));
+
+          if(mouse.active){
+            const dx = p.x - mouse.x, dy = p.y - mouse.y;
+            const dist2 = dx*dx + dy*dy;
+            const R = 130;
+            if(dist2 < R*R && dist2 > 0.02){
+              const dist = Math.sqrt(dist2);
+              const force = (1 - dist / R) * 0.55;
+              p.x += (dx / dist) * force;
+              p.y += (dy / dist) * force;
+            }
+          }
+        }
+      }
+
+      const tris = triangulate(points);
+      ctx.clearRect(0, 0, W, H);
+
+      const seen = new Set();
+      ctx.lineWidth = 1;
+      for(const t of tris){
+        const pairs = [[t[0],t[1]],[t[1],t[2]],[t[2],t[0]]];
+        for(const [a,b] of pairs){
+          const key = a<b ? a+'_'+b : b+'_'+a;
+          if(seen.has(key)) continue;
+          seen.add(key);
+          const p1 = points[a], p2 = points[b];
+          const len = Math.hypot(p2.x-p1.x, p2.y-p1.y);
+          const alpha = Math.max(0.02, Math.min(0.20, 1 - len/420));
+          const gold = ((a*7 + b*13) % 9 === 0);
+          ctx.strokeStyle = gold
+            ? 'rgba(203,162,78,' + (alpha*0.9).toFixed(3) + ')'
+            : 'rgba(79,209,232,' + alpha.toFixed(3) + ')';
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        }
+      }
+
+      ctx.fillStyle = 'rgba(79,209,232,0.4)';
+      for(const p of points){
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 1.3, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      if(!reduceMotion) requestAnimationFrame(step);
+    }
+
+    step();
+  })();
+
   // Scroll reveal
   const revealEls = document.querySelectorAll('.reveal');
   const io = new IntersectionObserver((entries)=>{
