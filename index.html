@@ -10,7 +10,7 @@
   (function(){
     try{
       var saved = localStorage.getItem('kk-theme');
-      var theme = (saved === 'light' || saved === 'green') ? saved : 'dark';
+      var theme = (saved === 'light') ? saved : 'dark';
       document.documentElement.setAttribute('data-theme', theme);
     }catch(e){}
   })();
@@ -60,27 +60,6 @@
     --gold-dim:#EDE0C4;
     --header-bg:rgba(255,255,255,0.82);
     color-scheme: light;
-  }
-
-  /* ===== GREEN THEME =====
-     Phosphor-terminal palette — black-green surface, glowing green text,
-     amber as the secondary accent (in place of gold). Same variable set,
-     third stop on the theme-toggle cycle: dark → light → green → dark. */
-  html[data-theme="green"]{
-    --ink:#040F09;
-    --panel:#081D12;
-    --panel-2:#0B2717;
-    --line:#12351F;
-    --line-soft:#0D2716;
-    --text:#D8FBE4;
-    --text-dim:#7FCFA0;
-    --text-faint:#4B8A68;
-    --cyan:#39FF88;
-    --cyan-dim:#1B6B3E;
-    --gold:#FFD166;
-    --gold-dim:#8A6A1E;
-    --header-bg:rgba(4,15,9,0.82);
-    color-scheme: dark;
   }
 
   *{margin:0;padding:0;box-sizing:border-box;}
@@ -231,11 +210,8 @@
   .theme-toggle:active{transform:scale(0.92);}
   .theme-toggle svg{width:16px;height:16px; display:block;}
   .theme-toggle .icon-sun{display:none;}
-  .theme-toggle .icon-term{display:none;}
   html[data-theme="light"] .theme-toggle .icon-moon{display:none;}
   html[data-theme="light"] .theme-toggle .icon-sun{display:block;}
-  html[data-theme="green"] .theme-toggle .icon-moon{display:none;}
-  html[data-theme="green"] .theme-toggle .icon-term{display:block;}
 
   @media (max-width:720px){
     .navlinks{display:none;}
@@ -715,40 +691,31 @@
           <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.6"/>
           <path d="M12 2.5v2.4M12 19.1v2.4M4.6 4.6l1.7 1.7M17.7 17.7l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.6 19.4l1.7-1.7M17.7 6.3l1.7-1.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
         </svg>
-        <svg class="icon-term" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <rect x="2.5" y="4.5" width="19" height="15" rx="1.6" stroke="currentColor" stroke-width="1.6"/>
-          <path d="M6.5 9.5l3.2 2.7-3.2 2.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M12.3 15h5.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-        </svg>
       </button>
     </div>
   </nav>
 </header>
 
 <script>
-  // Theme switcher: cycles [data-theme] on <html> through dark → light →
-  // green → dark, which swaps every CSS custom property (background,
-  // panels, lines, text, accents) in one step. Persists the choice and
-  // tells the hero canvas to redraw its mesh in the matching stroke colors.
+  // Theme switcher: flips [data-theme] on <html> between dark and light,
+  // which swaps every CSS custom property (background, panels, lines,
+  // text, accents) in one step. Persists the choice and tells the hero
+  // canvas to redraw its mesh in the matching stroke colors.
   (function(){
     const root = document.documentElement;
     const btn = document.getElementById('themeToggle');
     if(!btn) return;
 
-    const ORDER = ['dark', 'light', 'green'];
-    const LABEL = { dark:'dark', light:'light', green:'green terminal' };
-
     function current(){ return root.getAttribute('data-theme') || 'dark'; }
 
     function reflect(){
-      const theme = current();
-      const next = ORDER[(ORDER.indexOf(theme) + 1) % ORDER.length];
-      btn.setAttribute('aria-label', 'Switch to ' + LABEL[next] + ' theme');
+      const next = current() === 'light' ? 'dark' : 'light';
+      btn.setAttribute('aria-label', 'Switch to ' + next + ' theme');
     }
     reflect();
 
     btn.addEventListener('click', function(){
-      const next = ORDER[(ORDER.indexOf(current()) + 1) % ORDER.length];
+      const next = current() === 'light' ? 'dark' : 'light';
       root.setAttribute('data-theme', next);
       try{ localStorage.setItem('kk-theme', next); }catch(e){}
       reflect();
