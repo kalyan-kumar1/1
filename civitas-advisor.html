@@ -597,11 +597,13 @@
   }
 
   function renderSliders(){
+    // Full (re)build — only called on init and on preset/reset clicks,
+    // never while a slider is being dragged.
     slidersEl.innerHTML = axes.map(a => `
       <div class="slider-row">
         <div class="slider-labels">
-          <span class="${userValues[a.key]<50?'active-end':''}">${a.lowLabel}</span>
-          <span class="${userValues[a.key]>=50?'active-end':''}">${a.highLabel}</span>
+          <span class="lbl-low" data-axis="${a.key}">${a.lowLabel}</span>
+          <span class="lbl-high" data-axis="${a.key}">${a.highLabel}</span>
         </div>
         <input type="range" min="0" max="100" value="${userValues[a.key]}" data-axis="${a.key}" aria-label="${a.lowLabel} vs ${a.highLabel}">
       </div>
@@ -609,10 +611,20 @@
     slidersEl.querySelectorAll("input[type=range]").forEach(inp=>{
       inp.addEventListener("input", ()=>{
         userValues[inp.dataset.axis] = Number(inp.value);
-        renderSliders();
+        updateSliderLabel(inp.dataset.axis);
         update();
       });
     });
+  }
+
+  function updateSliderLabel(axisKey){
+    // Toggle the active-end highlight without touching the range input's DOM node,
+    // so dragging stays smooth (no rebuild mid-gesture).
+    const val = userValues[axisKey];
+    const low = slidersEl.querySelector(`.lbl-low[data-axis="${axisKey}"]`);
+    const high = slidersEl.querySelector(`.lbl-high[data-axis="${axisKey}"]`);
+    if (low) low.classList.toggle("active-end", val < 50);
+    if (high) high.classList.toggle("active-end", val >= 50);
   }
 
   document.querySelectorAll(".chip").forEach(chip=>{
