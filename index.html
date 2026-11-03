@@ -570,6 +570,10 @@
   .ledger-year{font-family:var(--mono); color:var(--gold); font-size:13px;}
   .ledger-name{font-size:14.5px; color:var(--text);}
   .ledger-issuer{font-family:var(--mono); font-size:12px; color:var(--text-faint); text-align:right;}
+  .ledger-group > summary{list-style:none; cursor:pointer;}
+  .ledger-group > summary::-webkit-details-marker{display:none;}
+  .ledger-group > summary .ledger-name::before{content:"▸ "; color:var(--gold); display:inline-block; transition:transform .2s;}
+  .ledger-group[open] > summary .ledger-name::before{transform:rotate(90deg);}
   @media (max-width:640px){
     .ledger-row{grid-template-columns:70px 1fr; }
     .ledger-issuer{display:none;}
@@ -762,7 +766,6 @@
   <div class="hero-tags">
     <span class="tag">MIT EECS · MIT Sloan MBA</span>
     <span class="tag">Databricks Certified Data Engineer</span>
-    <span class="tag">FINRA Series 7 / 63 / 79 / SIE</span>
     <span class="tag">Boston, USA</span>
   </div>
   <div class="hero-cta">
@@ -792,7 +795,6 @@
       <div class="stat-row"><span class="k">LOCATION</span><span class="v">Boston, USA</span></div>
       <div class="stat-row"><span class="k">FOCUS</span><span class="v">AI Strategy · Cyber Security</span></div>
       <div class="stat-row"><span class="k">DEGREES</span><span class="v">MBA · M.Eng · S.B.</span></div>
-      <div class="stat-row"><span class="k">LICENSES</span><span class="v">Series 7 · 63 · 79 · SIE</span></div>
       <div class="stat-row"><span class="k">LANGUAGES</span><span class="v">EN · FR · NL</span></div>
       <div class="stat-row"><span class="k">CONTACT</span><span class="v">720-061-1124</span></div>
     </div>
@@ -1047,7 +1049,7 @@
       <div class="eyebrow gold">04 — Credentials</div>
       <h2 class="section-title">Licenses &amp; certifications.</h2>
     </div>
-    <p class="section-note">Finance-licensed and Data-Engineer certified - audit trail below.</p>
+    <p class="section-note">Data-Engineer certified - audit trail below.</p>
   </div>
   <div class="ledger reveal">
     <div class="ledger-row head">
@@ -1074,21 +1076,15 @@
       <span class="ledger-issuer">DeepLearning.AI</span>
     </div>
     <div class="ledger-row">
+      <span class="ledger-year">2026</span>
+      <span class="ledger-name"><a href="https://credsverse.com/credentials/1b1120a4-477a-4486-9153-aea578f2ff91" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Foundations of AI Security Certificate</a></span>
+      <span class="ledger-issuer">Zenity</span>
+    </div>
+    <div class="ledger-row">
       <span class="ledger-year">2025</span>
       <span class="ledger-name"><a href="https://credentials.databricks.com/5132709e-e374-456e-a2f3-b6e8344f83ab#acc.i2BRM8OS" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Data Engineer Professional</a></span>
       <span class="ledger-issuer">Databricks</span>
     </div>
-    <div class="ledger-row">
-      <span class="ledger-year">2025</span>
-      <span class="ledger-name">Series 79 — Investment Banking Representative</span>
-      <span class="ledger-issuer">FINRA</span>
-    </div>
-
-    <div class="ledger-row">
-      <span class="ledger-year">2024</span>
-      <span class="ledger-name">Securities Industry Essentials Exam (SIE)</span>
-      <span class="ledger-issuer">FINRA</span>
-       </div>
     <div class="ledger-row">
       <span class="ledger-year">2024</span>
       <span class="ledger-name">NFA Swaps Proficiency Requirements</span>
@@ -1119,16 +1115,184 @@
       <span class="ledger-name"><a href="https://www.udemy.com/certificate/UC-fe068ef6-556b-434d-9184-ea4fe4a51833/" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Tableau A-Z: Hands-On Tableau Training for Data Science</a></span>
       <span class="ledger-issuer">Udemy</span>
     </div>
+    <details class="ledger-group">
+      <summary class="ledger-row">
+        <span class="ledger-year">2022</span>
+        <span class="ledger-name">Google Cloud Skill Badges (34)</span>
+        <span class="ledger-issuer">Google Skills</span>
+      </summary>
     <div class="ledger-row">
-      <span class="ledger-year">2023</span>
-      <span class="ledger-name">Series 63 — Uniform Securities Agent State Law Exam</span>
-      <span class="ledger-issuer">FINRA</span>
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2208225" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Intro to ML: Language Processing</a></span>
+      <span class="ledger-issuer">Google Skills</span>
     </div>
     <div class="ledger-row">
-      <span class="ledger-year">2023</span>
-      <span class="ledger-name">Series 7 — General Securities Representative Exam</span>
-      <span class="ledger-issuer">FINRA</span>
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2208109" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Use Machine Learning APIs on Google Cloud</a></span>
+      <span class="ledger-issuer">Google Skills</span>
     </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2208005" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Machine Learning APIs</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2200795" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Intro to ML: Image Processing</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2197094" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Scientific Data Processing</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2189067" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Build a Data Warehouse with BigQuery</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2185079" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Cloud SQL</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2172222" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Engineer Data for Predictive Modeling with BigQuery ML</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2142167" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Derive Insights from BigQuery Data</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2135163" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Develop Serverless Applications on Cloud Run</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2135004" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Google Cloud Run Serverless Workshop</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2117378" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Develop Serverless Apps with Firebase</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2115558" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Build Apps &amp; Websites with Firebase</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2110643" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Workspace: Add-ons</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2065720" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Baseline: Deploy &amp; Develop</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2057071" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Build a Website on Google Cloud</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2056788" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Website on Google Cloud</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2039613" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Cloud Development</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/2012070" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Google Developer Essentials</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/1995201" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Cloud Architecture: Design, Implement, and Manage</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/1980278" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Monitor and Log with Google Cloud Observability</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/1973040" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Implement DevOps Workflows in Google Cloud</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/1972535" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Develop Your Google Cloud Network</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/1964054" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Deploy Kubernetes Applications on Google Cloud</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/1963592" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Build a Secure Google Cloud Network</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/1957806" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Set Up an App Dev Environment on Google Cloud</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/1950453" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Google Cloud Solutions I: Scaling Your Infrastructure</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/1938379" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Understand Your Google Cloud Costs</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/1932070" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">DevOps Essentials</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/1931667" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Cloud Engineering</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/1931165" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Kubernetes in Google Cloud</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/1922612" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Automate Deployment and Manage Traffic on a Google Cloud Network</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/1902320" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Baseline: Infrastructure</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    <div class="ledger-row">
+      <span class="ledger-year">2022</span>
+      <span class="ledger-name"><a href="https://www.skills.google/public_profiles/fd0284ca-3707-4163-ad47-9a3c2c6be0cb/badges/1878311" target="_blank" rel="noopener" style="color:inherit; text-decoration:underline; text-underline-offset:3px;">Google Cloud Essentials</a></span>
+      <span class="ledger-issuer">Google Skills</span>
+    </div>
+    </details>
+  </div>
 </section>
     
 </section>
